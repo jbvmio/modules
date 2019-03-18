@@ -2,13 +2,14 @@ package modules
 
 import (
 	"fmt"
-	"github.com/jbvmio/modules/coop"
-	"github.com/jbvmio/modules/storage"
-	"github.com/jbvmio/modules/storage/inmemory"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/jbvmio/modules/coop"
+	"github.com/jbvmio/modules/storage"
+	"github.com/jbvmio/modules/storage/inmemory"
 )
 
 // Mod controls and manages all modules.
@@ -17,9 +18,9 @@ type Mod struct {
 }
 
 // NewMod returns a new Mod
-func NewMod() *Mod {
+func NewMod(name string) *Mod {
 	return &Mod{
-		app: coop.NewApplicationContext("blah"),
+		app: coop.NewApplicationContext(name),
 	}
 }
 

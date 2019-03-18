@@ -45,7 +45,9 @@ func NewApplicationContext(name string) *ApplicationContext {
 	app.Logger, app.LogLevel = ConfigureLogger()
 	//defer app.Logger.Sync()
 
-	app.Logger.Info("Creating Application Context")
+	app.Logger.Info("Creating Application Context",
+		zap.String("name", name),
+	)
 
 	// Set up two main channels to use for the evaluator and storage coordinators (only StorageChannel for now).
 	//   * Consumers and Clusters send offsets to the storage coordinator to populate all the state information

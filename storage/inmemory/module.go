@@ -2,9 +2,10 @@ package inmemory
 
 import (
 	"errors"
+	"sync"
+
 	"github.com/jbvmio/modules/coop"
 	"github.com/jbvmio/modules/storage"
-	"sync"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
