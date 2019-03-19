@@ -142,9 +142,12 @@ func (imm *InMemoryModule) addData(request *storage.StorageRequest, requestLogge
 	indexMap, ok := imm.indexes[request.Index]
 	if !ok {
 		if !imm.autoIndex {
-			requestLogger.Warn("unknown index")
+			requestLogger.Error("unknown index",
+				zap.String("index", request.Index),
+			)
 			return
 		}
+		requestLogger.Debug("Auto-Adding Index")
 		imm.addIndex(request, requestLogger)
 		indexMap = imm.indexes[request.Index]
 	}
