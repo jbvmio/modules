@@ -80,27 +80,6 @@ func (imm *InMemoryModule) deleteEntry(request *storage.Request, requestLogger *
 }
 
 func (imm *InMemoryModule) fetchEntryList(request *storage.Request, requestLogger *zap.Logger) {
-	/*
-		defer close(request.Reply)
-		requestLogger.Debug("Fetching Entries")
-
-		db, ok := imm.indexes[request.Index].db[request.DB]
-		if !ok {
-			requestLogger.Warn("unknown index or db")
-			return
-		}
-
-		db.lock.RLock()
-		entryList := make([]string, 0, len(db.entries))
-		for entry := range db.entries {
-			entryList = append(entryList, entry)
-		}
-		db.lock.RUnlock()
-
-		requestLogger.Debug("ok")
-		request.Reply <- entryList
-	*/
-
 	defer close(request.Reply)
 	requestLogger.Debug("Fetching Entries")
 
@@ -125,29 +104,6 @@ func (imm *InMemoryModule) fetchEntryList(request *storage.Request, requestLogge
 }
 
 func (imm *InMemoryModule) fetchEntry(request *storage.Request, requestLogger *zap.Logger) {
-	/*
-		defer close(request.Reply)
-		requestLogger.Debug("Fetching Entry")
-
-		db, ok := imm.indexes[request.Index].db[request.DB]
-		if !ok {
-			requestLogger.Warn("unknown index or db")
-			return
-		}
-
-		db.lock.RLock()
-		entry, ok := db.entries[request.Entry]
-		if !ok {
-			requestLogger.Warn("unknown entry")
-			db.lock.RUnlock()
-			return
-		}
-		db.lock.RUnlock()
-
-		requestLogger.Debug("ok")
-		request.Reply <- entry
-	*/
-
 	defer close(request.Reply)
 	requestLogger.Debug("Fetching Entry")
 
@@ -175,21 +131,6 @@ func (imm *InMemoryModule) fetchEntry(request *storage.Request, requestLogger *z
 }
 
 func (imm *InMemoryModule) addIndex(request *storage.Request, requestLogger *zap.Logger) {
-	/*
-		_, ok := imm.indexes[request.Index]
-		if ok {
-			requestLogger.Warn("Index Exists")
-			return
-		}
-		requestLogger.Debug("Adding Index")
-		imm.indexes[request.Index] = index{
-			//idx:     make(map[string][]*ring.Ring),
-			db:      make(map[string]*database),
-			idxLock: &sync.RWMutex{},
-			dbLock:  &sync.RWMutex{},
-		}
-		return
-	*/
 	_, ok := imm.indexes[request.Index]
 	if ok {
 		requestLogger.Warn("Index Exists")
@@ -201,43 +142,6 @@ func (imm *InMemoryModule) addIndex(request *storage.Request, requestLogger *zap
 }
 
 func (imm *InMemoryModule) addData(request *storage.Request, requestLogger *zap.Logger) {
-	/*
-		indexMap, ok := imm.indexes[request.Index]
-		if !ok {
-			if !imm.autoIndex {
-				requestLogger.Error("unknown index",
-					zap.String("index", request.Index),
-				)
-				return
-			}
-			requestLogger.Debug("Auto-Adding Index")
-			imm.addIndex(request, requestLogger)
-			indexMap = imm.indexes[request.Index]
-		}
-		requestLogger.Debug("Adding Data")
-		// Make the database if it does not yet exist
-		indexMap.dbLock.Lock()
-		dbMap, ok := indexMap.db[request.DB]
-		if !ok {
-			indexMap.db[request.DB] = &database{
-				lock:    &sync.RWMutex{},
-				entries: make(map[string]*Data),
-			}
-			dbMap = indexMap.db[request.DB]
-		}
-		indexMap.dbLock.Unlock()
-
-		// For the rest of this, we need the write lock
-		dbMap.lock.Lock()
-		defer dbMap.lock.Unlock()
-
-		dbMap.entries[request.Entry] = &Data{
-			request.Object,
-		}
-		requestLogger.Debug("ok")
-		return
-	*/
-
 	index, ok := imm.indexes[request.Index]
 	if !ok {
 		if !imm.autoIndex {
@@ -278,32 +182,6 @@ func (imm *InMemoryModule) addData(request *storage.Request, requestLogger *zap.
 }
 
 func (imm *InMemoryModule) clearData(request *storage.Request, requestLogger *zap.Logger) {
-	/*
-		indexMap, ok := imm.indexes[request.Index]
-		if !ok {
-			// Ignore for indexes that we don't know about - should never happen anyways
-			requestLogger.Warn("unknown index")
-			return
-		}
-
-		// Confirm the DB
-		indexMap.dbLock.Lock()
-		dbMap, ok := indexMap.db[request.DB]
-		if !ok {
-			// DB Doesn't Exist
-			indexMap.dbLock.Unlock()
-			return
-		}
-		indexMap.dbLock.Unlock()
-
-		// For the rest of this, we need the write lock DB
-		dbMap.lock.Lock()
-		defer dbMap.lock.Unlock()
-
-		dbMap.entries[request.Entry].ClearData()
-		requestLogger.Debug("ok")
-	*/
-
 	index, ok := imm.indexes[request.Index]
 	if !ok {
 		// Ignore for indexes that we don't know about - should never happen anyways
