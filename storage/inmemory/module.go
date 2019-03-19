@@ -15,7 +15,7 @@ import (
 
 const (
 	moduleName  = `inmemory`
-	moduleClass = `storage`
+	moduleClass = `inmemory`
 )
 
 /*
@@ -86,9 +86,9 @@ func (module *InMemoryModule) AssignApplicationContext(app *coop.ApplicationCont
 	module.App = app
 }
 
-// ModuleDetails returns the Module name and class.
+// ModuleDetails returns the Module class and name.
 func (module *InMemoryModule) ModuleDetails() (string, string) {
-	return module.name, module.class
+	return module.class, module.name
 }
 
 // AssignModuleLogger assigns the underlying ApplicationContext.
@@ -281,6 +281,11 @@ func (module *InMemoryModule) mainLoop() {
 			}
 		}
 	}
+}
+
+// GetCommunicationChannel returns the RequestChannel that has been setup for this module.
+func (module *InMemoryModule) GetCommunicationChannel() chan *storage.StorageRequest {
+	return module.requestChannel
 }
 
 /*

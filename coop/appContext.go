@@ -1,7 +1,6 @@
 package coop
 
 import (
-	"fmt"
 	"os"
 	"sync"
 
@@ -37,9 +36,11 @@ type ApplicationContext struct {
 
 	Modules []Module
 
-	loadedModules map[string]Module
-	quitChannel   chan struct{}
-	running       sync.WaitGroup
+	loadedModules    map[string]Module
+	storageModule    *StorageModule
+	quitChannel      chan struct{}
+	running          sync.WaitGroup
+	hasStorageModule bool
 }
 
 // NewApplicationContext returns a new ApplicationContext.
@@ -64,27 +65,6 @@ func NewApplicationContext(name string) *ApplicationContext {
 	return &app
 }
 
-func (app *ApplicationContext) initModules() {
-	app.quitChannel = make(chan struct{})
-	app.loadedModules = make(map[string]Module, len(app.Modules))
-	app.running = sync.WaitGroup{}
-	wg := &app.running
-	for _, module := range app.Modules {
-		name, class := module.ModuleDetails()
-		module.AssignApplicationContext(app)
-		module.AssignModuleLogger(app.Logger)
-		module.ModuleLogger().With(
-			zap.String("type", "module"),
-			zap.String("coordinator", "storage"),
-			zap.String("class", class),
-			zap.String("name", name))
-		app.loadedModules[name] = module
-	}
-	for module := range app.loadedModules {
-		app.loadedModules[module].Init(app.quitChannel, wg)
-	}
-}
-
 // ConfigureModules configures all the added Modules in the Application Context.
 // Run before calling Start.
 func (app *ApplicationContext) ConfigureModules() {
@@ -96,6 +76,10 @@ func (app *ApplicationContext) ConfigureModules() {
 			app.ConfigurationValid = false
 		}
 	}()
+
+	app.Logger.Info("Configuring Modules For Application Context",
+		zap.String("name", app.Name),
+	)
 
 	// Configure the Package Modules first, in order
 	for _, coordinator := range PackageModules {
@@ -116,28 +100,31 @@ func (app *ApplicationContext) ConfigureModules() {
 		return
 	}
 
+	// Init Modules
 	app.initModules()
 
 	// Configure the coordinators in order
 	for module := range app.loadedModules {
 		app.loadedModules[module].Configure()
-
-		// Make this run somewhere else later:
-		switch sm := app.loadedModules[module]; sm.(type) {
-		case StorageModule:
-			storage := sm.(StorageModule)
-			go app.StartStorage(&storage)
+		if isStorageModule(app.loadedModules[module]) {
+			if !app.hasStorageModule {
+				app.Logger.Info("Loading Main Storage Module",
+					zap.String(app.loadedModules[module].ModuleDetails()),
+				)
+				app.hasStorageModule = true
+				storage := app.loadedModules[module].(StorageModule)
+				app.storageModule = &storage
+				go app.StartStorage(app.storageModule)
+			} else {
+				sm := *app.storageModule
+				_, name := sm.ModuleDetails()
+				app.loadedModules[module].ModuleLogger().Error("Storage Module Already Loaded",
+					zap.String("current storage", name),
+				)
+			}
 		}
-
 	}
-	/*
-		for _, coordinator := range app.Modules {
-			coordinator.Configure()
-		}
-	*/
 	app.ConfigurationValid = true
-
-	fmt.Println("HERE DONE")
 }
 
 // Start the Application Context Modules.
@@ -174,14 +161,14 @@ func (app *ApplicationContext) Start(exitChannel chan os.Signal) int {
 	// Wait until we're told to exit
 	<-exitChannel
 	log.Info("Shutdown triggered")
-
+	StopLoadedModules(app.loadedModules)
 	// Exit cleanly
 	return 0
 }
 
-// StopCoordinatorModules is a helper func for coordinators to stop a list of modules. Given a map of protocol.Module,
+// StopLoadedModules is a helper func for coordinators to stop a list of modules. Given a map of protocol.Module,
 // it calls the Stop func on each one. Any errors that are returned are ignored.
-func StopCoordinatorModules(modules map[string]Module) {
+func StopLoadedModules(modules map[string]Module) {
 	// Stop all the modules passed in
 	for _, module := range modules {
 		module.Stop()
@@ -210,4 +197,49 @@ func (app *ApplicationContext) StartStorage(module *StorageModule) {
 			return
 		}
 	}
+}
+
+func (app *ApplicationContext) initModules() {
+	app.quitChannel = make(chan struct{})
+	app.loadedModules = make(map[string]Module, len(app.Modules))
+	app.running = sync.WaitGroup{}
+	wg := &app.running
+	for _, module := range app.Modules {
+
+		module.Init(app.quitChannel, wg)
+		class, name := module.ModuleDetails()
+		module.AssignModuleLogger(app.Logger.With(
+			zap.String("type", "module"),
+			zap.String("coordinator", getCoordType(module)),
+			zap.String("class", class),
+			zap.String("name", name)),
+		)
+		module.ModuleLogger().Info("Initializing Module")
+		module.AssignApplicationContext(app)
+		app.loadedModules[name] = module
+	}
+}
+
+func getCoordType(m Module) string {
+	switch m.(type) {
+	case Module:
+		switch {
+		case m == m.(StorageModule):
+			return "storage"
+		default:
+			return "generic"
+		}
+	}
+	return "unknown"
+}
+
+func isStorageModule(m Module) bool {
+	switch m.(type) {
+	case Module:
+		switch {
+		case m == m.(StorageModule):
+			return true
+		}
+	}
+	return false
 }

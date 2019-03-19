@@ -31,11 +31,6 @@ type Data struct {
 	storage.Object
 }
 
-// GetCommunicationChannel returns the RequestChannel that has been setup for this module.
-func (imm *InMemoryModule) GetCommunicationChannel() chan *storage.StorageRequest {
-	return imm.requestChannel
-}
-
 func (imm *InMemoryModule) requestWorker(workerNum int, requestChannel chan *storage.StorageRequest) {
 	defer imm.workersRunning.Done()
 
