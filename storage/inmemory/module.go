@@ -82,9 +82,13 @@ func (module *InMemoryModule) Init(quitChannel chan struct{}, running *sync.Wait
 // set, a default of 10 intervals is used. If no worker count is set, a default of 20 workers is used.
 func (module *InMemoryModule) Configure() { //name string, configRoot string) {
 	module.Log.Info("configuring inmemory module")
+	configRoot := `modules.inmemory`
 
-	configRoot := `./`
-	//module.name = name
+	/*
+		fmt.Println(viper.GetString(configRoot + ".name"))
+		fmt.Println(viper.GetString(configRoot + ".class"))
+		fmt.Println(viper.GetString(configRoot + ".blah"))
+	*/
 
 	// Set defaults for configs if needed
 	viper.SetDefault(configRoot+".intervals", 10)
