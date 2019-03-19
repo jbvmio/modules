@@ -19,6 +19,15 @@ var (
 	OutsideModules []Module
 )
 
+// exampleBase is the base construct of a Module.
+type exampleBase struct {
+	name        string
+	class       string
+	Log         *zap.Logger
+	quitChannel chan struct{}
+	running     *sync.WaitGroup
+}
+
 // Module is a common interface for all subsystem coordinators so that the core routine can manage them in a
 // consistent manner. The interface provides a way to configure the coordinator, and then methods to start it and stop
 // it safely. It is expected that when any of these funcs are called, the coordinator will then call the corresponding

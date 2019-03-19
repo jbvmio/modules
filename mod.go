@@ -24,7 +24,15 @@ func NewMod(name string) *Mod {
 	}
 }
 
+// Start starts the underlying ApplicationContext and returns once all Modules have loaded.
 func (m *Mod) Start() {
+	m.app.WG.Add(1)
+	go m.start()
+	// wait for all modules to start
+	m.app.WG.Wait()
+}
+
+func (m *Mod) start() {
 	// This makes sure that we panic and run defers correctly
 	defer handleExit()
 

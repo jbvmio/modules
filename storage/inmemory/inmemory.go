@@ -27,6 +27,7 @@ type database struct {
 	lastAccess int64
 }
 
+// Data holds the storage Object
 type Data struct {
 	storage.Object
 }
@@ -78,7 +79,7 @@ func (imm *InMemoryModule) deleteEntry(request *storage.StorageRequest, requestL
 func (imm *InMemoryModule) fetchEntryList(request *storage.StorageRequest, requestLogger *zap.Logger) {
 	defer close(request.Reply)
 
-	requestLogger.Info("Fetching Entries")
+	requestLogger.Debug("Fetching Entries")
 
 	db, ok := imm.indexes[request.Index].db[request.DB]
 	if !ok {
@@ -100,7 +101,7 @@ func (imm *InMemoryModule) fetchEntryList(request *storage.StorageRequest, reque
 func (imm *InMemoryModule) fetchEntry(request *storage.StorageRequest, requestLogger *zap.Logger) {
 	defer close(request.Reply)
 
-	requestLogger.Info("Fetching Entry")
+	requestLogger.Debug("Fetching Entry")
 
 	db, ok := imm.indexes[request.Index].db[request.DB]
 	if !ok {
@@ -127,7 +128,7 @@ func (imm *InMemoryModule) addIndex(request *storage.StorageRequest, requestLogg
 		requestLogger.Warn("Index Exists")
 		return
 	}
-	requestLogger.Info("Adding Index")
+	requestLogger.Debug("Adding Index")
 	imm.indexes[request.Index] = index{
 		//idx:     make(map[string][]*ring.Ring),
 		db:      make(map[string]*database),
@@ -147,7 +148,7 @@ func (imm *InMemoryModule) addData(request *storage.StorageRequest, requestLogge
 		imm.addIndex(request, requestLogger)
 		indexMap = imm.indexes[request.Index]
 	}
-	requestLogger.Info("Adding Data")
+	requestLogger.Debug("Adding Data")
 	// Make the database if it does not yet exist
 	indexMap.dbLock.Lock()
 	dbMap, ok := indexMap.db[request.DB]

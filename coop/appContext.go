@@ -34,7 +34,11 @@ type ApplicationContext struct {
 	// information, or to fetch the same information. It is serviced by the storage Module.
 	StorageChannel chan *storage.StorageRequest
 
+	// Modules contains all loaded Modules
 	Modules []Module
+
+	// WG - Controlling sync.WaitGroup
+	WG sync.WaitGroup
 
 	loadedModules    map[string]Module
 	storageModule    *StorageModule
@@ -62,6 +66,7 @@ func NewApplicationContext(name string) *ApplicationContext {
 	//   * The Evaluators send requests to the storage coordinator for detailed information
 	//   * The HTTP server sends requests to both the evaluator and storage coordinators to fulfill API requests
 	app.StorageChannel = make(chan *storage.StorageRequest)
+	app.WG = sync.WaitGroup{}
 	return &app
 }
 
@@ -82,15 +87,21 @@ func (app *ApplicationContext) ConfigureModules() {
 	)
 
 	// Configure the Package Modules first, in order
-	for _, coordinator := range PackageModules {
-		if coordinator != nil {
-			app.Modules = append(app.Modules, coordinator)
+	for _, module := range PackageModules {
+		if module != nil {
+			app.Logger.Info("Loading Package Module",
+				zap.String(module.ModuleDetails()),
+			)
+			app.Modules = append(app.Modules, module)
 		}
 	}
 	// Configure any outside Modules
-	for _, coordinator := range OutsideModules {
-		if coordinator != nil {
-			app.Modules = append(app.Modules, coordinator)
+	for _, module := range OutsideModules {
+		if module != nil {
+			app.Logger.Info("Loading Outside Module",
+				zap.String(module.ModuleDetails()),
+			)
+			app.Modules = append(app.Modules, module)
 		}
 	}
 
@@ -103,7 +114,7 @@ func (app *ApplicationContext) ConfigureModules() {
 	// Init Modules
 	app.initModules()
 
-	// Configure the coordinators in order
+	// Configure the modules in order
 	for module := range app.loadedModules {
 		app.loadedModules[module].Configure()
 		if isStorageModule(app.loadedModules[module]) {
@@ -118,9 +129,12 @@ func (app *ApplicationContext) ConfigureModules() {
 			} else {
 				sm := *app.storageModule
 				_, name := sm.ModuleDetails()
-				app.loadedModules[module].ModuleLogger().Error("Storage Module Already Loaded",
-					zap.String("current storage", name),
+				app.loadedModules[module].ModuleLogger().Error("Main Storage Module Already Loaded",
+					zap.String("loaded storage", name),
 				)
+				app.Logger.Error("Multiple Storage Modules Loaded")
+				app.ConfigurationValid = false
+				return
 			}
 		}
 	}
@@ -139,6 +153,7 @@ func (app *ApplicationContext) Start(exitChannel chan os.Signal) int {
 	if !app.ConfigurationValid {
 		return 1
 	}
+
 	app.Logger.Info("Starting",
 		zap.String("name", app.Name),
 	)
@@ -146,18 +161,20 @@ func (app *ApplicationContext) Start(exitChannel chan os.Signal) int {
 	// Set up a specific child logger for main
 	log := app.Logger.With(zap.String("type", "main"), zap.String("name", app.Name))
 
-	// Start the coordinators in order
-	for i, coordinator := range app.Modules {
-		err := coordinator.Start()
+	// Start the coordinators
+	for i, module := range app.Modules {
+		err := module.Start()
 		if err != nil {
 			// Reverse our way out, stopping coordinators, then exit
 			for j := i - 1; j >= 0; j-- {
-				coordinator.Stop()
+				module.Stop()
 			}
 			return 1
 		}
 	}
 
+	// Signal everything has started
+	app.WG.Done()
 	// Wait until we're told to exit
 	<-exitChannel
 	log.Info("Shutdown triggered")
@@ -189,7 +206,7 @@ func (app *ApplicationContext) StartStorage(module *StorageModule) {
 	for {
 		select {
 		case request := <-app.StorageChannel:
-			// Yes, this forwarder is silly. However, in the future we want to support multiple storage modules
+			// Yes, this forwarder is silly. However, in the future multiple storage modules could be implemented
 			// concurrently. However, that will require implementing a router that properly handles sets and
 			// fetches and makes sure only 1 module responds to fetches
 			channel <- request
@@ -200,24 +217,34 @@ func (app *ApplicationContext) StartStorage(module *StorageModule) {
 }
 
 func (app *ApplicationContext) initModules() {
+	var tmp []Module
+	already := make(map[string]bool, len(app.Modules))
 	app.quitChannel = make(chan struct{})
 	app.loadedModules = make(map[string]Module, len(app.Modules))
 	app.running = sync.WaitGroup{}
 	wg := &app.running
 	for _, module := range app.Modules {
-
-		module.Init(app.quitChannel, wg)
 		class, name := module.ModuleDetails()
-		module.AssignModuleLogger(app.Logger.With(
-			zap.String("type", "module"),
-			zap.String("coordinator", getCoordType(module)),
-			zap.String("class", class),
-			zap.String("name", name)),
-		)
-		module.ModuleLogger().Info("Initializing Module")
-		module.AssignApplicationContext(app)
-		app.loadedModules[name] = module
+		if !already[name] {
+			already[name] = true
+			module.Init(app.quitChannel, wg)
+			module.AssignModuleLogger(app.Logger.With(
+				zap.String("type", "module"),
+				zap.String("coordinator", getCoordType(module)),
+				zap.String("class", class),
+				zap.String("name", name)),
+			)
+			module.ModuleLogger().Info("Initializing Module")
+			module.AssignApplicationContext(app)
+			app.loadedModules[name] = module
+			tmp = append(tmp, module)
+		} else {
+			app.Logger.Error("Duplicate Module Detected",
+				zap.String("name", name),
+			)
+		}
 	}
+	app.Modules = tmp
 }
 
 func getCoordType(m Module) string {
