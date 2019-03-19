@@ -79,7 +79,7 @@ func (module *InMemoryModule) Init(quitChannel chan struct{}, running *sync.Wait
 
 // Configure validates the configuration for the module, creates a channel to receive requests on, and sets up the
 // storage map. If no expiration time for groups is set, a default value of 7 days is used. If no interval count is
-// set, a default of 10 intervals is used. If no worker count is set, a default of 20 workers is used.
+// set, a default of 10 intervals is used. If no worker count is set, a default of 10 workers is used.
 func (module *InMemoryModule) Configure() { //name string, configRoot string) {
 	module.Log.Info("configuring inmemory module")
 	configRoot := `modules.inmemory`
@@ -118,15 +118,6 @@ func (module *InMemoryModule) Start() error {
 	for i := range viper.GetStringMap("indexes") {
 		module.
 			indexes[i] = storage.NewIndex()
-
-		/*
-			indexes[i] = storage.Index{
-				//idx:     make(map[string][]*ring.Ring),
-				db:      make(map[string]*database),
-				idxLock: &sync.RWMutex{},
-				dbLock:  &sync.RWMutex{},
-			}
-		*/
 	}
 
 	// Start the appropriate number of workers, with a channel for each
