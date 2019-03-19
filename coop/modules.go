@@ -77,10 +77,10 @@ type Module interface {
 }
 
 // StorageModule is responsible storing desired data.
-// watches. It must accept and respond to all StorageRequest types. This interface conforms to the overall
+// watches. It must accept and respond to all Request types. This interface conforms to the overall
 // Module interface, but it adds a func to fetch the channel that the module is listening on for requests, so
 // that requests can be forwarded to it by the coordinator.
 type StorageModule interface {
 	Module
-	GetCommunicationChannel() chan *storage.StorageRequest
+	GetCommunicationChannel() chan *storage.Request
 }

@@ -38,11 +38,11 @@ type InMemoryModule struct {
 	queueDepth  int
 	autoIndex   bool
 
-	requestChannel chan *storage.StorageRequest
+	requestChannel chan *storage.Request
 	workersRunning sync.WaitGroup
 	mainRunning    sync.WaitGroup
-	indexes        map[string]index
-	workers        []chan *storage.StorageRequest
+	indexes        map[string]*storage.Index
+	workers        []chan *storage.Request
 
 	quitChannel chan struct{}
 	running     *sync.WaitGroup
@@ -103,10 +103,10 @@ func (module *InMemoryModule) Configure() { //name string, configRoot string) {
 	module.queueDepth = viper.GetInt(configRoot + ".queue-depth")
 	module.autoIndex = viper.GetBool(configRoot + ".auto-index")
 
-	module.requestChannel = make(chan *storage.StorageRequest, module.queueDepth)
+	module.requestChannel = make(chan *storage.Request, module.queueDepth)
 	module.workersRunning = sync.WaitGroup{}
 	module.mainRunning = sync.WaitGroup{}
-	module.indexes = make(map[string]index)
+	module.indexes = make(map[string]*storage.Index)
 }
 
 // Start sets up the rest of the storage map for each configured cluster. It then starts the configured number of
@@ -117,18 +117,22 @@ func (module *InMemoryModule) Start() error {
 
 	for i := range viper.GetStringMap("indexes") {
 		module.
-			indexes[i] = index{
-			//idx:     make(map[string][]*ring.Ring),
-			db:      make(map[string]*database),
-			idxLock: &sync.RWMutex{},
-			dbLock:  &sync.RWMutex{},
-		}
+			indexes[i] = storage.NewIndex()
+
+		/*
+			indexes[i] = storage.Index{
+				//idx:     make(map[string][]*ring.Ring),
+				db:      make(map[string]*database),
+				idxLock: &sync.RWMutex{},
+				dbLock:  &sync.RWMutex{},
+			}
+		*/
 	}
 
 	// Start the appropriate number of workers, with a channel for each
-	module.workers = make([]chan *storage.StorageRequest, module.numWorkers)
+	module.workers = make([]chan *storage.Request, module.numWorkers)
 	for i := 0; i < module.numWorkers; i++ {
-		module.workers[i] = make(chan *storage.StorageRequest, module.queueDepth)
+		module.workers[i] = make(chan *storage.Request, module.queueDepth)
 		module.workersRunning.Add(1)
 		go module.requestWorker(i, module.workers[i])
 	}
@@ -177,6 +181,6 @@ func (module *InMemoryModule) mainLoop() {
 }
 
 // GetCommunicationChannel returns the RequestChannel that has been setup for this module.
-func (module *InMemoryModule) GetCommunicationChannel() chan *storage.StorageRequest {
+func (module *InMemoryModule) GetCommunicationChannel() chan *storage.Request {
 	return module.requestChannel
 }

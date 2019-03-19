@@ -1,42 +1,18 @@
 package inmemory
 
 import (
-	"sync"
+	"fmt"
 
 	"github.com/jbvmio/modules/storage"
 
 	"go.uber.org/zap"
 )
 
-type index struct {
-	//idx map[string][]*ring.Ring
-	db map[string]*database
-
-	// This lock is used when modifying broker topics or offsets
-	idxLock *sync.RWMutex
-
-	// This lock is used when modifying the overall consumer list
-	// It does not need to be held for modifying an individual group
-	dbLock *sync.RWMutex
-}
-
-type database struct {
-	// This lock is held when using the individual group, either for read or write
-	lock       *sync.RWMutex
-	entries    map[string]*Data
-	lastAccess int64
-}
-
-// Data holds the storage Object
-type Data struct {
-	storage.Object
-}
-
-func (imm *InMemoryModule) requestWorker(workerNum int, requestChannel chan *storage.StorageRequest) {
+func (imm *InMemoryModule) requestWorker(workerNum int, requestChannel chan *storage.Request) {
 	defer imm.workersRunning.Done()
 
 	// Using a map for the request types avoids a bit of complexity below
-	var requestTypeMap = map[storage.StorageRequestConstant]func(*storage.StorageRequest, *zap.Logger){
+	var requestTypeMap = map[storage.RequestConstant]func(*storage.Request, *zap.Logger){
 		storage.StorageSetIndex:       imm.addIndex,
 		storage.StorageSetData:        imm.addData,
 		storage.StorageClearData:      imm.clearData,
@@ -58,88 +34,211 @@ func (imm *InMemoryModule) requestWorker(workerNum int, requestChannel chan *sto
 	}
 }
 
-func (imm *InMemoryModule) deleteEntry(request *storage.StorageRequest, requestLogger *zap.Logger) {
-	db, ok := imm.indexes[request.Index].db[request.DB]
-	if !ok {
-		requestLogger.Warn("unknown index or db")
-		return
-	}
-	db.lock.Lock()
-	_, ok = db.entries[request.Entry]
-	if !ok {
-		requestLogger.Warn("unknown entry")
+func (imm *InMemoryModule) testFunc(request *storage.Request) {
+	fmt.Println(request)
+}
+
+func (imm *InMemoryModule) deleteEntry(request *storage.Request, requestLogger *zap.Logger) {
+	/*
+		db, ok := imm.indexes[request.Index].db[request.DB]
+		if !ok {
+			requestLogger.Warn("unknown index or db")
+			return
+		}
+		db.lock.Lock()
+		_, ok = db.entries[request.Entry]
+		if !ok {
+			requestLogger.Warn("unknown entry")
+			db.lock.Unlock()
+			return
+		}
+		delete(db.entries, request.Entry)
 		db.lock.Unlock()
+		requestLogger.Debug("ok")
+	*/
+
+	db, err := imm.indexes[request.Index].GetDB(request.DB)
+	if err != nil {
+		requestLogger.Error("Error Retrieving Database",
+			zap.Error(err),
+		)
 		return
 	}
-	delete(db.entries, request.Entry)
-	db.lock.Unlock()
+	db.Lock()
+	_, err = db.GetEntry(request.Entry)
+	if err != nil {
+		requestLogger.Error("Error Retrieving Entry",
+			zap.Error(err),
+		)
+		db.Unlock()
+		return
+	}
+
+	delete(*db.EntryMap(), request.Entry)
+	db.Unlock()
 	requestLogger.Debug("ok")
 }
 
-func (imm *InMemoryModule) fetchEntryList(request *storage.StorageRequest, requestLogger *zap.Logger) {
-	defer close(request.Reply)
+func (imm *InMemoryModule) fetchEntryList(request *storage.Request, requestLogger *zap.Logger) {
+	/*
+		defer close(request.Reply)
+		requestLogger.Debug("Fetching Entries")
 
+		db, ok := imm.indexes[request.Index].db[request.DB]
+		if !ok {
+			requestLogger.Warn("unknown index or db")
+			return
+		}
+
+		db.lock.RLock()
+		entryList := make([]string, 0, len(db.entries))
+		for entry := range db.entries {
+			entryList = append(entryList, entry)
+		}
+		db.lock.RUnlock()
+
+		requestLogger.Debug("ok")
+		request.Reply <- entryList
+	*/
+
+	defer close(request.Reply)
 	requestLogger.Debug("Fetching Entries")
 
-	db, ok := imm.indexes[request.Index].db[request.DB]
-	if !ok {
-		requestLogger.Warn("unknown index or db")
+	db, err := imm.indexes[request.Index].GetDB(request.DB)
+	if err != nil {
+		requestLogger.Error("Error Retrieving Database",
+			zap.Error(err),
+		)
 		return
 	}
 
-	db.lock.RLock()
-	entryList := make([]string, 0, len(db.entries))
-	for entry := range db.entries {
+	db.RLock()
+	entries := *db.EntryMap()
+	entryList := make([]string, 0, len(entries))
+	for entry := range entries {
 		entryList = append(entryList, entry)
 	}
-	db.lock.RUnlock()
+	db.RUnlock()
 
 	requestLogger.Debug("ok")
 	request.Reply <- entryList
 }
 
-func (imm *InMemoryModule) fetchEntry(request *storage.StorageRequest, requestLogger *zap.Logger) {
-	defer close(request.Reply)
+func (imm *InMemoryModule) fetchEntry(request *storage.Request, requestLogger *zap.Logger) {
+	/*
+		defer close(request.Reply)
+		requestLogger.Debug("Fetching Entry")
 
+		db, ok := imm.indexes[request.Index].db[request.DB]
+		if !ok {
+			requestLogger.Warn("unknown index or db")
+			return
+		}
+
+		db.lock.RLock()
+		entry, ok := db.entries[request.Entry]
+		if !ok {
+			requestLogger.Warn("unknown entry")
+			db.lock.RUnlock()
+			return
+		}
+		db.lock.RUnlock()
+
+		requestLogger.Debug("ok")
+		request.Reply <- entry
+	*/
+
+	defer close(request.Reply)
 	requestLogger.Debug("Fetching Entry")
 
-	db, ok := imm.indexes[request.Index].db[request.DB]
-	if !ok {
-		requestLogger.Warn("unknown index or db")
+	db, err := imm.indexes[request.Index].GetDB(request.DB)
+	if err != nil {
+		requestLogger.Error("Error Retrieving Database",
+			zap.Error(err),
+		)
 		return
 	}
 
-	db.lock.RLock()
-	entry, ok := db.entries[request.Entry]
-	if !ok {
-		requestLogger.Warn("unknown entry")
-		db.lock.RUnlock()
+	db.RLock()
+	data, err := db.GetEntry(request.Entry)
+	if err != nil {
+		requestLogger.Error("Error Retrieving Entry",
+			zap.Error(err),
+		)
+		db.RUnlock()
 		return
 	}
-	db.lock.RUnlock()
+	db.RUnlock()
 
 	requestLogger.Debug("ok")
-	request.Reply <- entry
+	request.Reply <- data
 }
 
-func (imm *InMemoryModule) addIndex(request *storage.StorageRequest, requestLogger *zap.Logger) {
+func (imm *InMemoryModule) addIndex(request *storage.Request, requestLogger *zap.Logger) {
+	/*
+		_, ok := imm.indexes[request.Index]
+		if ok {
+			requestLogger.Warn("Index Exists")
+			return
+		}
+		requestLogger.Debug("Adding Index")
+		imm.indexes[request.Index] = index{
+			//idx:     make(map[string][]*ring.Ring),
+			db:      make(map[string]*database),
+			idxLock: &sync.RWMutex{},
+			dbLock:  &sync.RWMutex{},
+		}
+		return
+	*/
 	_, ok := imm.indexes[request.Index]
 	if ok {
 		requestLogger.Warn("Index Exists")
 		return
 	}
 	requestLogger.Debug("Adding Index")
-	imm.indexes[request.Index] = index{
-		//idx:     make(map[string][]*ring.Ring),
-		db:      make(map[string]*database),
-		idxLock: &sync.RWMutex{},
-		dbLock:  &sync.RWMutex{},
-	}
+	imm.indexes[request.Index] = storage.NewIndex()
 	return
 }
 
-func (imm *InMemoryModule) addData(request *storage.StorageRequest, requestLogger *zap.Logger) {
-	indexMap, ok := imm.indexes[request.Index]
+func (imm *InMemoryModule) addData(request *storage.Request, requestLogger *zap.Logger) {
+	/*
+		indexMap, ok := imm.indexes[request.Index]
+		if !ok {
+			if !imm.autoIndex {
+				requestLogger.Error("unknown index",
+					zap.String("index", request.Index),
+				)
+				return
+			}
+			requestLogger.Debug("Auto-Adding Index")
+			imm.addIndex(request, requestLogger)
+			indexMap = imm.indexes[request.Index]
+		}
+		requestLogger.Debug("Adding Data")
+		// Make the database if it does not yet exist
+		indexMap.dbLock.Lock()
+		dbMap, ok := indexMap.db[request.DB]
+		if !ok {
+			indexMap.db[request.DB] = &database{
+				lock:    &sync.RWMutex{},
+				entries: make(map[string]*Data),
+			}
+			dbMap = indexMap.db[request.DB]
+		}
+		indexMap.dbLock.Unlock()
+
+		// For the rest of this, we need the write lock
+		dbMap.lock.Lock()
+		defer dbMap.lock.Unlock()
+
+		dbMap.entries[request.Entry] = &Data{
+			request.Object,
+		}
+		requestLogger.Debug("ok")
+		return
+	*/
+
+	index, ok := imm.indexes[request.Index]
 	if !ok {
 		if !imm.autoIndex {
 			requestLogger.Error("unknown index",
@@ -149,54 +248,92 @@ func (imm *InMemoryModule) addData(request *storage.StorageRequest, requestLogge
 		}
 		requestLogger.Debug("Auto-Adding Index")
 		imm.addIndex(request, requestLogger)
-		indexMap = imm.indexes[request.Index]
+		index = imm.indexes[request.Index]
 	}
 	requestLogger.Debug("Adding Data")
-	// Make the database if it does not yet exist
-	indexMap.dbLock.Lock()
-	dbMap, ok := indexMap.db[request.DB]
-	if !ok {
-		indexMap.db[request.DB] = &database{
-			lock:    &sync.RWMutex{},
-			entries: make(map[string]*Data),
+
+	index.Lock()
+	db, err := index.GetDB(request.DB)
+	if err != nil {
+		if err.(storage.Err).Code() == storage.ErrUnknownDB {
+			requestLogger.Debug("Creating New Database")
+			db = storage.NewDatabase()
+			index.AddDB(request.DB, db)
+		} else {
+			requestLogger.Error("Error Retrieving Database",
+				zap.Error(err),
+			)
+			index.Unlock()
+			return
 		}
-		dbMap = indexMap.db[request.DB]
 	}
-	indexMap.dbLock.Unlock()
 
-	// For the rest of this, we need the write lock
-	dbMap.lock.Lock()
-	defer dbMap.lock.Unlock()
+	index.Unlock()
+	db.Lock()
+	defer db.Unlock()
+	db.AddEntry(request.Entry, &storage.Data{request.Object})
 
-	dbMap.entries[request.Entry] = &Data{
-		request.Object,
-	}
 	requestLogger.Debug("ok")
 	return
 }
 
-func (imm *InMemoryModule) clearData(request *storage.StorageRequest, requestLogger *zap.Logger) {
-	indexMap, ok := imm.indexes[request.Index]
+func (imm *InMemoryModule) clearData(request *storage.Request, requestLogger *zap.Logger) {
+	/*
+		indexMap, ok := imm.indexes[request.Index]
+		if !ok {
+			// Ignore for indexes that we don't know about - should never happen anyways
+			requestLogger.Warn("unknown index")
+			return
+		}
+
+		// Confirm the DB
+		indexMap.dbLock.Lock()
+		dbMap, ok := indexMap.db[request.DB]
+		if !ok {
+			// DB Doesn't Exist
+			indexMap.dbLock.Unlock()
+			return
+		}
+		indexMap.dbLock.Unlock()
+
+		// For the rest of this, we need the write lock DB
+		dbMap.lock.Lock()
+		defer dbMap.lock.Unlock()
+
+		dbMap.entries[request.Entry].ClearData()
+		requestLogger.Debug("ok")
+	*/
+
+	index, ok := imm.indexes[request.Index]
 	if !ok {
 		// Ignore for indexes that we don't know about - should never happen anyways
-		requestLogger.Warn("unknown index")
+		requestLogger.Error("Error",
+			zap.Error(storage.GetErr(storage.ErrUnknownIndex)),
+		)
 		return
 	}
 
-	// Confirm the DB
-	indexMap.dbLock.Lock()
-	dbMap, ok := indexMap.db[request.DB]
-	if !ok {
-		// DB Doesn't Exist
-		indexMap.dbLock.Unlock()
+	index.Lock()
+	db, err := index.GetDB(request.DB)
+	if err != nil {
+		requestLogger.Error("Error Retrieving Database",
+			zap.Error(err),
+		)
+		index.Unlock()
 		return
 	}
-	indexMap.dbLock.Unlock()
+	index.Unlock()
 
 	// For the rest of this, we need the write lock DB
-	dbMap.lock.Lock()
-	defer dbMap.lock.Unlock()
+	db.Lock()
+	defer db.Unlock()
 
-	dbMap.entries[request.Entry].ClearData()
+	data, err := db.GetEntry(request.Entry)
+	if err != nil {
+		requestLogger.Error("Error Retrieving Data",
+			zap.Error(err),
+		)
+	}
+	data.ClearData()
 	requestLogger.Debug("ok")
 }

@@ -32,7 +32,7 @@ type ApplicationContext struct {
 
 	// This is the channel over which any module should send storage requests for storage of offsets and group
 	// information, or to fetch the same information. It is serviced by the storage Module.
-	StorageChannel chan *storage.StorageRequest
+	StorageChannel chan *storage.Request
 
 	// Modules contains all loaded Modules
 	Modules []Module
@@ -65,7 +65,7 @@ func NewApplicationContext(name string) *ApplicationContext {
 	//   * The Notifiers send evaluation requests to the evaluator coordinator to check status
 	//   * The Evaluators send requests to the storage coordinator for detailed information
 	//   * The HTTP server sends requests to both the evaluator and storage coordinators to fulfill API requests
-	app.StorageChannel = make(chan *storage.StorageRequest)
+	app.StorageChannel = make(chan *storage.Request)
 	app.WG = sync.WaitGroup{}
 	return &app
 }
@@ -198,7 +198,7 @@ func (app *ApplicationContext) StartStorage(module *StorageModule) {
 	defer app.running.Done()
 
 	// We only support 1 module right now, so only send to that module
-	var channel chan *storage.StorageRequest
+	var channel chan *storage.Request
 	for _, module := range app.Modules {
 		channel = module.(StorageModule).GetCommunicationChannel()
 	}

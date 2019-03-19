@@ -9,7 +9,6 @@ import (
 
 	"github.com/jbvmio/modules/coop"
 	"github.com/jbvmio/modules/storage"
-	"github.com/jbvmio/modules/storage/inmemory"
 )
 
 // Mod controls and manages all modules.
@@ -48,18 +47,18 @@ func (m *Mod) start() {
 }
 
 // StorageChannel returns the underlying Storage Channel
-func (m *Mod) StorageChannel() chan *storage.StorageRequest {
+func (m *Mod) StorageChannel() chan *storage.Request {
 	return m.app.StorageChannel
 }
 
-// StorageRequest returns a StorageRequest
-func (m *Mod) StorageRequest() *storage.StorageRequest {
-	return &storage.StorageRequest{}
+// StorageRequest returns a Request
+func (m *Mod) StorageRequest() *storage.Request {
+	return &storage.Request{}
 }
 
 // SendStorageRequest sends a request to the underlying Storage Channel
-func (m *Mod) SendStorageRequest(sr *storage.StorageRequest) *storage.StorageResponse {
-	var response storage.StorageResponse
+func (m *Mod) SendStorageRequest(sr *storage.Request) *storage.Response {
+	var response storage.Response
 	switch {
 	case sr.Reply != nil:
 		ok := storage.TimeoutSendStorageRequest(m.StorageChannel(), sr, 2)
@@ -69,7 +68,7 @@ func (m *Mod) SendStorageRequest(sr *storage.StorageRequest) *storage.StorageRes
 			r := <-sr.Reply
 			response.Failure = false
 			if r != nil {
-				response.Object = r.(*inmemory.Data).Object
+				response.Object = r.(*storage.Data).Object
 				response.HasObject = true
 			}
 		}
