@@ -193,6 +193,7 @@ func StopLoadedModules(modules map[string]Module) {
 }
 
 // StartStorage here.
+// Possibly add channelRouter here - take(modules []*StorageModule) and Route to all.
 func (app *ApplicationContext) StartStorage(module *StorageModule) {
 	app.running.Add(1)
 	defer app.running.Done()

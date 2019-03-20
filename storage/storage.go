@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/json"
-	"time"
 )
 
 // isLoaded - true if a storage Module is loaded.
@@ -21,9 +20,9 @@ const (
 	// and Owner fields
 	StorageSetIndex RequestConstant = 0
 
-	// StorageSetData is the request type to store a consumer owner. Requires Cluster, Group, Topic, Partition,
+	// StorageSetEntry is the request type to store a consumer owner. Requires Cluster, Group, Topic, Partition,
 	// and Owner fields
-	StorageSetData RequestConstant = 1
+	StorageSetEntry RequestConstant = 1
 
 	// StorageSetDeleteEntry is the request type to remove a topic from the broker and all consumers. Requires Cluster,
 	// Group, and Topic fields
@@ -44,7 +43,7 @@ const (
 
 var storageRequestStrings = [...]string{
 	"StorageSetIndex",
-	"StorageSetData",
+	"StorageSetEntry",
 	"StorageSetDeleteEntry",
 	"StorageFetchIndexes",
 	"StorageFetchEntries",
@@ -58,7 +57,7 @@ type RequestHandler func(*Request)
 // which can be used to assign RequestHandlers. For convenience.
 var HandleRequestMap = map[RequestConstant]RequestHandler{
 	StorageSetIndex:       nil,
-	StorageSetData:        nil,
+	StorageSetEntry:       nil,
 	StorageSetDeleteEntry: nil,
 	StorageFetchIndexes:   nil,
 	StorageFetchEntries:   nil,
@@ -116,16 +115,4 @@ type Request struct {
 type Object interface {
 	// ID returns a unique identifying string for the object.
 	ID() string
-}
-
-// TimeoutSendStorageRequest is a helper func for sending a protocol.Request to a channel with a timeout,
-// specified in seconds. If the request is sent, return true. Otherwise, if the timeout is hit, return false.
-func TimeoutSendStorageRequest(storageChannel chan *Request, request *Request, maxTime int) bool {
-	timeout := time.After(time.Duration(maxTime) * time.Second)
-	select {
-	case storageChannel <- request:
-		return true
-	case <-timeout:
-		return false
-	}
 }

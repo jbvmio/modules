@@ -1,14 +1,16 @@
 package storage
 
+import "time"
+
 // SetRequestSetIndex sets the Corresponding Request Type.
 func (sr *Request) SetRequestSetIndex() *Request {
 	sr.RequestType = StorageSetIndex
 	return sr
 }
 
-// SetRequestSetData sets the Corresponding Request Type.
-func (sr *Request) SetRequestSetData() *Request {
-	sr.RequestType = StorageSetData
+// SetRequestSetEntry sets the Corresponding Request Type.
+func (sr *Request) SetRequestSetEntry() *Request {
+	sr.RequestType = StorageSetEntry
 	return sr
 }
 
@@ -73,4 +75,16 @@ func (sr *Request) Validate() (*Request, bool) {
 		return sr, false
 	}
 	return sr, true
+}
+
+// TimeoutSendStorageRequest is a helper func for sending a Request to a channel with a timeout,
+// specified in seconds. If the request is sent, return true. Otherwise, if the timeout is hit, return false.
+func TimeoutSendStorageRequest(storageChannel chan *Request, request *Request, maxTime int) bool {
+	timeout := time.After(time.Duration(maxTime) * time.Second)
+	select {
+	case storageChannel <- request:
+		return true
+	case <-timeout:
+		return false
+	}
 }

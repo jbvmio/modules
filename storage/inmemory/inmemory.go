@@ -14,7 +14,7 @@ func (imm *InMemoryModule) requestWorker(workerNum int, requestChannel chan *sto
 	// Using a map for the request types avoids a bit of complexity below
 	var requestTypeMap = map[storage.RequestConstant]func(*storage.Request, *zap.Logger){
 		storage.StorageSetIndex:       imm.addIndex,
-		storage.StorageSetData:        imm.addData,
+		storage.StorageSetEntry:       imm.addEntry,
 		storage.StorageSetDeleteEntry: imm.deleteEntry,
 		storage.StorageFetchEntries:   imm.fetchEntryList,
 		storage.StorageFetchEntry:     imm.fetchEntry,
@@ -55,7 +55,8 @@ func (imm *InMemoryModule) deleteEntry(request *storage.Request, requestLogger *
 		return
 	}
 
-	delete(*db.EntryMap(), request.Entry)
+	//delete(*db.EntryMap(), request.Entry)
+	db.DeleteEntry(request.Entry)
 	db.Unlock()
 	requestLogger.Debug("ok")
 }
@@ -118,11 +119,11 @@ func (imm *InMemoryModule) addIndex(request *storage.Request, requestLogger *zap
 		return
 	}
 	requestLogger.Debug("Adding Index")
-	imm.indexes[request.Index] = storage.NewIndex()
+	imm.indexes[request.Index] = NewIndex()
 	return
 }
 
-func (imm *InMemoryModule) addData(request *storage.Request, requestLogger *zap.Logger) {
+func (imm *InMemoryModule) addEntry(request *storage.Request, requestLogger *zap.Logger) {
 	index, ok := imm.indexes[request.Index]
 	if !ok {
 		if !imm.autoIndex {
@@ -140,9 +141,9 @@ func (imm *InMemoryModule) addData(request *storage.Request, requestLogger *zap.
 	index.Lock()
 	db, err := index.GetDB(request.DB)
 	if err != nil {
-		if err.(storage.Err).Code() == storage.ErrUnknownDB {
+		if err.(Err).Code() == ErrUnknownDB {
 			requestLogger.Debug("Creating New Database")
-			db = storage.NewDatabase()
+			db = NewDatabase()
 			index.AddDB(request.DB, db)
 		} else {
 			requestLogger.Error("Error Retrieving Database",
@@ -161,4 +162,3 @@ func (imm *InMemoryModule) addData(request *storage.Request, requestLogger *zap.
 	requestLogger.Debug("ok")
 	return
 }
-

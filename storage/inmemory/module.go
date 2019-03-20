@@ -41,7 +41,7 @@ type InMemoryModule struct {
 	requestChannel chan *storage.Request
 	workersRunning sync.WaitGroup
 	mainRunning    sync.WaitGroup
-	indexes        map[string]*storage.Index
+	indexes        map[string]*Index
 	workers        []chan *storage.Request
 
 	quitChannel chan struct{}
@@ -106,7 +106,7 @@ func (module *InMemoryModule) Configure() { //name string, configRoot string) {
 	module.requestChannel = make(chan *storage.Request, module.queueDepth)
 	module.workersRunning = sync.WaitGroup{}
 	module.mainRunning = sync.WaitGroup{}
-	module.indexes = make(map[string]*storage.Index)
+	module.indexes = make(map[string]*Index)
 }
 
 // Start sets up the rest of the storage map for each configured cluster. It then starts the configured number of
@@ -117,7 +117,7 @@ func (module *InMemoryModule) Start() error {
 
 	for i := range viper.GetStringMap("indexes") {
 		module.
-			indexes[i] = storage.NewIndex()
+			indexes[i] = NewIndex()
 	}
 
 	// Start the appropriate number of workers, with a channel for each
@@ -157,7 +157,7 @@ func (module *InMemoryModule) mainLoop() {
 		case storage.StorageFetchIndexes, storage.StorageFetchEntries, storage.StorageSetIndex:
 			// Send to any worker
 			module.workers[int(rand.Int31n(int32(module.numWorkers)))] <- r
-		case storage.StorageSetDeleteEntry, storage.StorageSetData, storage.StorageFetchEntry:
+		case storage.StorageSetDeleteEntry, storage.StorageSetEntry, storage.StorageFetchEntry:
 			// Hash to a consistent worker
 			module.workers[int(xxhash.ChecksumString64(r.Index+r.DB)%uint64(module.numWorkers))] <- r
 		default:

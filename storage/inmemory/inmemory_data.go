@@ -1,29 +1,11 @@
-package storage
+package inmemory
 
-// Data holds the storage Object
-type Data struct {
-	Object
-}
+import (
+	"sync"
 
-/*
+	"github.com/jbvmio/modules/storage"
+)
 
-// Index manages Databases.
-type Index interface {
-	GetDB(db string) (*Database, error)
-	AddDB(db string, database *Database)
-	DeleteDB(db string)
-}
-
-// Database stores, retrieves and deletes data.
-type Database interface {
-	GetEntry(entry string) (*Data, error)
-	AddEntry(entry string, data *Data)
-	DeleteEntry(entry string)
-}
-
-*/
-
-/*
 // Index contains a map of Databases.
 type Index struct {
 	//idx map[string][]*ring.Ring // Future Feature*
@@ -36,7 +18,7 @@ type Index struct {
 // Database contains a map of Objects.
 type Database struct {
 	lock       *sync.RWMutex
-	entries    map[string]*Data
+	entries    map[string]*storage.Data
 	lastAccess int64
 }
 
@@ -77,12 +59,12 @@ func (i *Index) Unlock() {
 func NewDatabase() *Database {
 	return &Database{
 		lock:    &sync.RWMutex{},
-		entries: make(map[string]*Data),
+		entries: make(map[string]*storage.Data),
 	}
 }
 
 // GetEntry returns the specified Entry from the Database.
-func (db *Database) GetEntry(entry string) (*Data, error) {
+func (db *Database) GetEntry(entry string) (*storage.Data, error) {
 	data, ok := db.entries[entry]
 	if !ok {
 		return nil, Errf(ErrUnknownEntry, "%v", entry)
@@ -91,7 +73,7 @@ func (db *Database) GetEntry(entry string) (*Data, error) {
 }
 
 // AddEntry returns the specified Entry from the Database.
-func (db *Database) AddEntry(entry string, data *Data) {
+func (db *Database) AddEntry(entry string, data *storage.Data) {
 	db.entries[entry] = data
 }
 
@@ -101,7 +83,7 @@ func (db *Database) DeleteEntry(entry string) {
 }
 
 // EntryMap returns the specified underlying EntryMap for the Database.
-func (db *Database) EntryMap() *map[string]*Data {
+func (db *Database) EntryMap() *map[string]*storage.Data {
 	return &db.entries
 }
 
@@ -124,4 +106,3 @@ func (db *Database) RLock() {
 func (db *Database) RUnlock() {
 	db.lock.Unlock()
 }
-*/
