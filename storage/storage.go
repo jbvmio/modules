@@ -40,10 +40,6 @@ const (
 	// Requires Reply, Cluster, and Topic fields.
 	// Returns a []int64
 	StorageFetchEntry RequestConstant = 5
-
-	// StorageClearData is the request type to remove all partition owner information for a single group.
-	// Requires Cluster and Group fields
-	StorageClearData RequestConstant = 6
 )
 
 var storageRequestStrings = [...]string{
@@ -53,7 +49,6 @@ var storageRequestStrings = [...]string{
 	"StorageFetchIndexes",
 	"StorageFetchEntries",
 	"StorageFetchEntry",
-	"StorageClearData",
 }
 
 // RequestHandler handles a storage Request.
@@ -68,7 +63,6 @@ var HandleRequestMap = map[RequestConstant]RequestHandler{
 	StorageFetchIndexes:   nil,
 	StorageFetchEntries:   nil,
 	StorageFetchEntry:     nil,
-	StorageClearData:      nil,
 }
 
 // String returns a string representation of a RequestConstant for logging
@@ -120,9 +114,6 @@ type Request struct {
 
 // Object is the interface which references the data you want to store.
 type Object interface {
-	// ClearData wipes any desired data within the object when deleting the entire object isn't desired
-	ClearData()
-
 	// ID returns a unique identifying string for the object.
 	ID() string
 }

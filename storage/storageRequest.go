@@ -39,12 +39,6 @@ func (sr *Request) SetRequestFetchEntry() *Request {
 	return sr
 }
 
-// SetRequestClearData sets the Corresponding Request Type.
-func (sr *Request) SetRequestClearData() *Request {
-	sr.RequestType = StorageClearData
-	return sr
-}
-
 // SetIndex sets the index for the Storage Request.
 func (sr *Request) SetIndex(index string) *Request {
 	sr.Index = index

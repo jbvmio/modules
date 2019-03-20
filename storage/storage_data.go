@@ -14,14 +14,10 @@ type Index struct {
 
 	// This lock is used when modifying indexes.
 	idxLock *sync.RWMutex
-
-	// Optional Lock
-	//dbLock *sync.RWMutex
 }
 
 // Database contains a map of Objects.
 type Database struct {
-	// This lock is held when using the individual group, either for read or write
 	lock       *sync.RWMutex
 	entries    map[string]*Data
 	lastAccess int64
@@ -33,7 +29,6 @@ func NewIndex() *Index {
 		//idx:     make(map[string][]*ring.Ring),
 		db:      make(map[string]*Database),
 		idxLock: &sync.RWMutex{},
-		//dbLock:  &sync.RWMutex{},
 	}
 }
 
@@ -42,7 +37,6 @@ func (i *Index) GetDB(db string) (*Database, error) {
 	database, ok := i.db[db]
 	if !ok {
 		return nil, Errf(ErrUnknownDB, "%v", db)
-		//return nil, fmt.Errorf("unknown index or db: %v", db)
 	}
 	return database, nil
 }
@@ -75,7 +69,6 @@ func (db *Database) GetEntry(entry string) (*Data, error) {
 	data, ok := db.entries[entry]
 	if !ok {
 		return nil, Errf(ErrUnknownEntry, "%v", entry)
-		//return nil, fmt.Errorf("unknown entry: %v", entry)
 	}
 	return data, nil
 }

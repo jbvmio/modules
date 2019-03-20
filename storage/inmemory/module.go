@@ -157,7 +157,7 @@ func (module *InMemoryModule) mainLoop() {
 		case storage.StorageFetchIndexes, storage.StorageFetchEntries, storage.StorageSetIndex:
 			// Send to any worker
 			module.workers[int(rand.Int31n(int32(module.numWorkers)))] <- r
-		case storage.StorageSetDeleteEntry, storage.StorageClearData, storage.StorageSetData, storage.StorageFetchEntry:
+		case storage.StorageSetDeleteEntry, storage.StorageSetData, storage.StorageFetchEntry:
 			// Hash to a consistent worker
 			module.workers[int(xxhash.ChecksumString64(r.Index+r.DB)%uint64(module.numWorkers))] <- r
 		default:

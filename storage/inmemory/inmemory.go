@@ -15,7 +15,6 @@ func (imm *InMemoryModule) requestWorker(workerNum int, requestChannel chan *sto
 	var requestTypeMap = map[storage.RequestConstant]func(*storage.Request, *zap.Logger){
 		storage.StorageSetIndex:       imm.addIndex,
 		storage.StorageSetData:        imm.addData,
-		storage.StorageClearData:      imm.clearData,
 		storage.StorageSetDeleteEntry: imm.deleteEntry,
 		storage.StorageFetchEntries:   imm.fetchEntryList,
 		storage.StorageFetchEntry:     imm.fetchEntry,
@@ -163,37 +162,3 @@ func (imm *InMemoryModule) addData(request *storage.Request, requestLogger *zap.
 	return
 }
 
-func (imm *InMemoryModule) clearData(request *storage.Request, requestLogger *zap.Logger) {
-	index, ok := imm.indexes[request.Index]
-	if !ok {
-		// Ignore for indexes that we don't know about - should never happen anyways
-		requestLogger.Error("Error",
-			zap.Error(storage.GetErr(storage.ErrUnknownIndex)),
-		)
-		return
-	}
-
-	index.Lock()
-	db, err := index.GetDB(request.DB)
-	if err != nil {
-		requestLogger.Error("Error Retrieving Database",
-			zap.Error(err),
-		)
-		index.Unlock()
-		return
-	}
-	index.Unlock()
-
-	// For the rest of this, we need the write lock DB
-	db.Lock()
-	defer db.Unlock()
-
-	data, err := db.GetEntry(request.Entry)
-	if err != nil {
-		requestLogger.Error("Error Retrieving Data",
-			zap.Error(err),
-		)
-	}
-	data.ClearData()
-	requestLogger.Debug("ok")
-}
