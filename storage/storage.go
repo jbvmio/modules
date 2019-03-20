@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/json"
-	"sync"
 	"time"
 )
 
@@ -126,115 +125,6 @@ type Object interface {
 
 	// ID returns a unique identifying string for the object.
 	ID() string
-}
-
-// Index contains a map of Databases.
-type Index struct {
-	//idx map[string][]*ring.Ring // Future Feature*
-	db map[string]*Database
-
-	// This lock is used when modifying broker topics or offsets
-	idxLock *sync.RWMutex
-
-	// This lock is used when modifying the overall consumer list
-	// It does not need to be held for modifying an individual group
-	dbLock *sync.RWMutex
-}
-
-// NewIndex returns a new Index.
-func NewIndex() *Index {
-	return &Index{
-		//idx:     make(map[string][]*ring.Ring),
-		db:      make(map[string]*Database),
-		idxLock: &sync.RWMutex{},
-		//dbLock:  &sync.RWMutex{},
-	}
-}
-
-// GetDB returns the specifed Database or error or not found.
-func (i *Index) GetDB(db string) (*Database, error) {
-	database, ok := i.db[db]
-	if !ok {
-		return nil, Errf(ErrUnknownDB, "%v", db)
-		//return nil, fmt.Errorf("unknown index or db: %v", db)
-	}
-	return database, nil
-}
-
-// AddDB add an existing Database to Index DatabaseMap.
-func (i *Index) AddDB(db string, database *Database) {
-	i.db[db] = database
-}
-
-// Lock locks the Index.
-func (i *Index) Lock() {
-	i.idxLock.Lock()
-}
-
-// Unlock unlocks the Index.
-func (i *Index) Unlock() {
-	i.idxLock.Unlock()
-}
-
-// Database contains a map of Objects.
-type Database struct {
-	// This lock is held when using the individual group, either for read or write
-	lock       *sync.RWMutex
-	entries    map[string]*Data
-	lastAccess int64
-}
-
-// NewDatabase returns a new Database.
-func NewDatabase() *Database {
-	return &Database{
-		lock:    &sync.RWMutex{},
-		entries: make(map[string]*Data),
-	}
-}
-
-// GetEntry returns the specified Entry from the Database.
-func (db *Database) GetEntry(entry string) (*Data, error) {
-	data, ok := db.entries[entry]
-	if !ok {
-		return nil, Errf(ErrUnknownEntry, "%v", entry)
-		//return nil, fmt.Errorf("unknown entry: %v", entry)
-	}
-	return data, nil
-}
-
-// AddEntry returns the specified Entry from the Database.
-func (db *Database) AddEntry(entry string, data *Data) {
-	db.entries[entry] = data
-}
-
-// EntryMap returns the specified underlying EntryMap for the Database.
-func (db *Database) EntryMap() *map[string]*Data {
-	return &db.entries
-}
-
-// Lock locks the Database.
-func (db *Database) Lock() {
-	db.lock.Lock()
-}
-
-// Unlock locks the Database.
-func (db *Database) Unlock() {
-	db.lock.Unlock()
-}
-
-// RLock puts a Read Lock on the Database.
-func (db *Database) RLock() {
-	db.lock.Lock()
-}
-
-// RUnlock removes a Read Lock the Database.
-func (db *Database) RUnlock() {
-	db.lock.Unlock()
-}
-
-// Data holds the storage Object
-type Data struct {
-	Object
 }
 
 // TimeoutSendStorageRequest is a helper func for sending a protocol.Request to a channel with a timeout,

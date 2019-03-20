@@ -39,24 +39,6 @@ func (imm *InMemoryModule) testFunc(request *storage.Request) {
 }
 
 func (imm *InMemoryModule) deleteEntry(request *storage.Request, requestLogger *zap.Logger) {
-	/*
-		db, ok := imm.indexes[request.Index].db[request.DB]
-		if !ok {
-			requestLogger.Warn("unknown index or db")
-			return
-		}
-		db.lock.Lock()
-		_, ok = db.entries[request.Entry]
-		if !ok {
-			requestLogger.Warn("unknown entry")
-			db.lock.Unlock()
-			return
-		}
-		delete(db.entries, request.Entry)
-		db.lock.Unlock()
-		requestLogger.Debug("ok")
-	*/
-
 	db, err := imm.indexes[request.Index].GetDB(request.DB)
 	if err != nil {
 		requestLogger.Error("Error Retrieving Database",
