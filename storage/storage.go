@@ -51,7 +51,16 @@ var storageRequestStrings = [...]string{
 }
 
 // RequestHandler handles a storage Request.
+// The RequestHandler is responsible for handling any Responses required by a fetch request using the Reply channel.
 type RequestHandler func(*Request)
+
+// NoopHandler can be used to as default RequestHandler.
+// It does nothing with the request and closes the Reply channel as needed.
+func NoopHandler(request *Request) {
+	if request.Reply != nil {
+		close(request.Reply)
+	}
+}
 
 // HandleRequestMap contains the available Storage Request options
 // which can be used to assign RequestHandlers. For convenience.
@@ -82,37 +91,4 @@ func (c RequestConstant) MarshalText() ([]byte, error) {
 // RequestConstant
 func (c RequestConstant) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c.String())
-}
-
-// Request is sent over the StorageChannel that is stored in the application context. It is a query to either
-// send information to the storage subsystem, or retrieve information from it . The RequestType indiciates the
-// particular type of request. "Set" and "Clear" requests do not get a response. "Fetch" requests will send a response
-// over the Reply channel supplied in the request
-type Request struct {
-	// The type of request that this struct encapsulates
-	RequestType RequestConstant
-
-	// If the RequestType is a "Fetch" request, Reply must contain a channel to receive the response on
-	Reply chan interface{}
-
-	// The name of the cluster to which the request applies. Required for all request types except StorageFetchClusters
-	Index string
-
-	// The name of the cluster to which the request applies. Required for all request types except StorageFetchClusters
-	DB string
-
-	// The name of the cluster to which the request applies. Required for all request types except StorageFetchClusters
-	Entry string
-
-	// The timestamp of the request
-	Timestamp int64
-
-	// Interface holding data
-	Object
-}
-
-// Object is the interface which references the data you want to store.
-type Object interface {
-	// ID returns a unique identifying string for the object.
-	ID() string
 }

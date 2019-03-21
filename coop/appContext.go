@@ -65,7 +65,9 @@ func NewApplicationContext(name string) *ApplicationContext {
 	//   * The Notifiers send evaluation requests to the evaluator coordinator to check status
 	//   * The Evaluators send requests to the storage coordinator for detailed information
 	//   * The HTTP server sends requests to both the evaluator and storage coordinators to fulfill API requests
-	app.StorageChannel = make(chan *storage.Request)
+	// Moved to Configure Func
+	//app.StorageChannel = make(chan *storage.Request)
+
 	app.WG = sync.WaitGroup{}
 	return &app
 }
@@ -122,6 +124,8 @@ func (app *ApplicationContext) ConfigureModules() {
 				app.Logger.Info("Loading Main Storage Module",
 					zap.String(app.loadedModules[module].ModuleDetails()),
 				)
+				// Set up main channel for storage
+				app.StorageChannel = make(chan *storage.Request)
 				app.hasStorageModule = true
 				storage := app.loadedModules[module].(StorageModule)
 				app.storageModule = &storage

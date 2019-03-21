@@ -1,8 +1,6 @@
 package inmemory
 
 import (
-	"fmt"
-
 	"github.com/jbvmio/modules/storage"
 
 	"go.uber.org/zap"
@@ -31,10 +29,6 @@ func (imm *InMemoryModule) requestWorker(workerNum int, requestChannel chan *sto
 				zap.String("request", r.RequestType.String())))
 		}
 	}
-}
-
-func (imm *InMemoryModule) testFunc(request *storage.Request) {
-	fmt.Println(request)
 }
 
 func (imm *InMemoryModule) deleteEntry(request *storage.Request, requestLogger *zap.Logger) {
@@ -161,4 +155,16 @@ func (imm *InMemoryModule) addEntry(request *storage.Request, requestLogger *zap
 
 	requestLogger.Debug("ok")
 	return
+}
+
+func (imm *InMemoryModule) fetchIndexList(request *storage.Request, requestLogger *zap.Logger) {
+	defer close(request.Reply)
+	requestLogger.Debug("Fetching Indexes")
+
+	indexList := make([]string, 0, len(imm.indexes))
+	for i := range imm.indexes {
+		indexList = append(indexList, i)
+	}
+	requestLogger.Debug("ok")
+	request.Reply <- indexList
 }
