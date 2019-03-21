@@ -16,38 +16,38 @@ func IsLoaded() bool {
 type RequestConstant int
 
 const (
-	// StorageSetIndex is the request type to store a consumer owner. Requires Cluster, Group, Topic, Partition,
+	// TypeSetIndex is the request type to store a consumer owner. Requires Cluster, Group, Topic, Partition,
 	// and Owner fields
-	StorageSetIndex RequestConstant = 0
+	TypeSetIndex RequestConstant = 0
 
-	// StorageSetEntry is the request type to store a consumer owner. Requires Cluster, Group, Topic, Partition,
+	// TypeSetEntry is the request type to store a consumer owner. Requires Cluster, Group, Topic, Partition,
 	// and Owner fields
-	StorageSetEntry RequestConstant = 1
+	TypeSetEntry RequestConstant = 1
 
-	// StorageSetDeleteEntry is the request type to remove a topic from the broker and all consumers. Requires Cluster,
+	// TypeDeleteEntry is the request type to remove a topic from the broker and all consumers. Requires Cluster,
 	// Group, and Topic fields
-	StorageSetDeleteEntry RequestConstant = 2
+	TypeDeleteEntry RequestConstant = 2
 
-	// StorageFetchIndexes is the request type to retrieve a list of clusters. Requires Reply. Returns a []string
-	StorageFetchIndexes RequestConstant = 3
+	// TypeFetchIndexes is the request type to retrieve a list of clusters. Requires Reply. Returns a []string
+	TypeFetchIndexes RequestConstant = 3
 
-	// StorageFetchEntries is the request type to retrieve a list of topics in a cluster. Requires Reply and Cluster
+	// TypeFetchEntries is the request type to retrieve a list of topics in a cluster. Requires Reply and Cluster
 	// fields. Returns a []string
-	StorageFetchEntries RequestConstant = 4
+	TypeFetchEntries RequestConstant = 4
 
-	// StorageFetchEntry is the request type to retrieve the current broker offsets (one per partition) for a topic.
+	// TypeFetchEntry is the request type to retrieve the current broker offsets (one per partition) for a topic.
 	// Requires Reply, Cluster, and Topic fields.
 	// Returns a []int64
-	StorageFetchEntry RequestConstant = 5
+	TypeFetchEntry RequestConstant = 5
 )
 
 var storageRequestStrings = [...]string{
-	"StorageSetIndex",
-	"StorageSetEntry",
-	"StorageSetDeleteEntry",
-	"StorageFetchIndexes",
-	"StorageFetchEntries",
-	"StorageFetchEntry",
+	"TypeSetIndex",
+	"TypeSetEntry",
+	"TypeDeleteEntry",
+	"TypeFetchIndexes",
+	"TypeFetchEntries",
+	"TypeFetchEntry",
 }
 
 // RequestHandler handles a storage Request.
@@ -65,12 +65,12 @@ func NoopHandler(request *Request) {
 // HandleRequestMap contains the available Storage Request options
 // which can be used to assign RequestHandlers. For convenience.
 var HandleRequestMap = map[RequestConstant]RequestHandler{
-	StorageSetIndex:       nil,
-	StorageSetEntry:       nil,
-	StorageSetDeleteEntry: nil,
-	StorageFetchIndexes:   nil,
-	StorageFetchEntries:   nil,
-	StorageFetchEntry:     nil,
+	TypeSetIndex:     nil,
+	TypeSetEntry:     nil,
+	TypeDeleteEntry:  nil,
+	TypeFetchIndexes: nil,
+	TypeFetchEntries: nil,
+	TypeFetchEntry:   nil,
 }
 
 // String returns a string representation of a RequestConstant for logging

@@ -51,9 +51,9 @@ func (m *Mod) StorageChannel() chan *storage.Request {
 	return m.app.StorageChannel
 }
 
-// StorageRequest returns a Request
-func (m *Mod) StorageRequest() *storage.Request {
-	return &storage.Request{}
+// BuildRequest returns a RequestBuilder
+func (m *Mod) BuildRequest() *storage.RequestBuilder {
+	return storage.BuildRequest()
 }
 
 // SendStorageRequest sends a request to the underlying Storage Channel

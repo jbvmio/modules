@@ -154,10 +154,10 @@ func (module *InMemoryModule) mainLoop() {
 
 	for r := range module.requestChannel {
 		switch r.RequestType {
-		case storage.StorageFetchIndexes, storage.StorageFetchEntries, storage.StorageSetIndex:
+		case storage.TypeFetchIndexes, storage.TypeFetchEntries, storage.TypeSetIndex:
 			// Send to any worker
 			module.workers[int(rand.Int31n(int32(module.numWorkers)))] <- r
-		case storage.StorageSetDeleteEntry, storage.StorageSetEntry, storage.StorageFetchEntry:
+		case storage.TypeDeleteEntry, storage.TypeSetEntry, storage.TypeFetchEntry:
 			// Hash to a consistent worker
 			module.workers[int(xxhash.ChecksumString64(r.Index+r.DB)%uint64(module.numWorkers))] <- r
 		default:

@@ -11,11 +11,11 @@ func (imm *InMemoryModule) requestWorker(workerNum int, requestChannel chan *sto
 
 	// Using a map for the request types avoids a bit of complexity below
 	var requestTypeMap = map[storage.RequestConstant]func(*storage.Request, *zap.Logger){
-		storage.StorageSetIndex:       imm.addIndex,
-		storage.StorageSetEntry:       imm.addEntry,
-		storage.StorageSetDeleteEntry: imm.deleteEntry,
-		storage.StorageFetchEntries:   imm.fetchEntryList,
-		storage.StorageFetchEntry:     imm.fetchEntry,
+		storage.TypeSetIndex:     imm.addIndex,
+		storage.TypeSetEntry:     imm.addEntry,
+		storage.TypeDeleteEntry:  imm.deleteEntry,
+		storage.TypeFetchEntries: imm.fetchEntryList,
+		storage.TypeFetchEntry:   imm.fetchEntry,
 	}
 
 	workerLogger := imm.Log.With(zap.Int("worker", workerNum))
