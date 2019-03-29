@@ -4,11 +4,61 @@ import (
 	"sync"
 )
 
+// Global Variables
+var (
+	// Enable AutoIndexing, Default true
+	AutoIndex bool
+	// mainStorage holds the main Storage
+	mainStorage = Indexes{
+		indexes: make(map[string]*Index),
+		idx:     &sync.RWMutex{},
+	}
+	// True after first initialization of the indexes
+	indexInit bool
+)
+
+// Indexes can be used to hold the main Storage
+type Indexes struct {
+	indexes map[string]*Index
+	// Mutex for all Indexes
+	idx *sync.RWMutex
+}
+
+// Get returns the given Index or nil.
+func (I *Indexes) Get(index string) *Index {
+	I.idx.Lock()
+	i := I.indexes[index]
+	I.idx.Unlock()
+	return i
+}
+
+// Entry represents a stored object in a database.
+type Entry interface {
+	Get() interface{}
+	Err() error
+}
+
+// Data implements Entry.
+type Data struct {
+	Item interface{}
+	// err contains any errors encountered during the operational process.
+	err error
+}
+
+// Get returns the internal Data Item.
+func (d *Data) Get() interface{} {
+	return d.Item
+}
+
+// Err returns any errors encountered during the operational process.
+func (d *Data) Err() error {
+	return d.err
+}
+
 // Index contains a map of Databases.
 type Index struct {
 	//idx map[string][]*ring.Ring // Future Feature*
 	db map[string]*Database
-
 	// This lock is used when modifying indexes.
 	idxLock *sync.RWMutex
 }
@@ -16,31 +66,38 @@ type Index struct {
 // Database contains a map of Objects.
 type Database struct {
 	lock       *sync.RWMutex
-	entries    map[string]Object
+	entries    map[string]Entry
 	lastAccess int64
-}
-
-// Data holds the storage Object
-type Data struct {
-	Object
+	// err holds any errors encountered during the operational process.
+	err error
 }
 
 // NewIndex returns a new Index.
-func NewIndex() *Index {
-	return &Index{
-		//idx:     make(map[string][]*ring.Ring),
+func NewIndex(name string) *Index {
+	mainStorage.idx.Lock()
+	i := &Index{
 		db:      make(map[string]*Database),
 		idxLock: &sync.RWMutex{},
 	}
+	mainStorage.indexes[name] = i
+	mainStorage.idx.Unlock()
+	return i
+}
+
+// GetIndex returns the given Index or nil.
+func GetIndex(name string) *Index {
+	return mainStorage.Get(name)
 }
 
 // GetDB returns the specifed Database or error or not found.
-func (i *Index) GetDB(db string) (*Database, error) {
+func (i *Index) GetDB(db string) *Database {
 	database, ok := i.db[db]
 	if !ok {
-		return nil, Errf(ErrUnknownDB, "%v", db)
+		return &Database{
+			err: Errf(ErrUnknownDB, "%v", db),
+		}
 	}
-	return database, nil
+	return database
 }
 
 // AddDB add an existing Database to Index DatabaseMap.
@@ -62,21 +119,33 @@ func (i *Index) Unlock() {
 func NewDatabase() *Database {
 	return &Database{
 		lock:    &sync.RWMutex{},
-		entries: make(map[string]Object),
+		entries: make(map[string]Entry),
 	}
 }
 
 // GetEntry returns the specified Entry from the Database.
-func (db *Database) GetEntry(entry string) (Object, error) {
+func (db *Database) GetEntry(entry string) Entry {
+	if db.err != nil {
+		return &Data{
+			err: db.err,
+		}
+	}
 	data, ok := db.entries[entry]
 	if !ok {
-		return nil, Errf(ErrUnknownEntry, "%v", entry)
+		return &Data{
+			err: Errf(ErrUnknownEntry, "%v", entry),
+		}
 	}
-	return data, nil
+	return data
 }
 
-// AddEntry returns the specified Entry from the Database.
-func (db *Database) AddEntry(entry string, data Object) {
+// AddData adds a Data Entry to the Database.
+func (db *Database) AddData(entry string, data interface{}) {
+	db.entries[entry] = &Data{Item: data}
+}
+
+// AddEntry adds an Entry to the Database.
+func (db *Database) AddEntry(entry string, data Entry) {
 	db.entries[entry] = data
 }
 
@@ -85,8 +154,8 @@ func (db *Database) DeleteEntry(entry string) {
 	delete(db.entries, entry)
 }
 
-// EntryMap returns the specified underlying EntryMap for the Database.
-func (db *Database) EntryMap() *map[string]Object {
+// EntryMap returns the direct EntryMap for the Database.
+func (db *Database) EntryMap() *map[string]Entry {
 	return &db.entries
 }
 

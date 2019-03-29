@@ -12,12 +12,8 @@ import (
 
 // Global Variables
 var (
-	// Enable AutoIndexing
-	AutoIndex bool
 	// Main Module Logger
 	Logger *zap.Logger
-	// Main Storage
-	indexes map[string]*Index
 )
 
 // Config contains all the settings for the Module.
@@ -73,7 +69,6 @@ func NewModule(config *Config) *Module {
 
 // Start starts the Module.
 func (m *Module) Start() {
-	indexes = make(map[string]*Index)
 	m.Logger = configureLogger(m.Config.LogLevel)
 	Logger = m.Logger.With(zap.String("Logger", "Request"))
 	m.Process.Logger = m.Logger.With(

@@ -6,7 +6,7 @@ import "github.com/jbvmio/team"
 type RequestConstant int
 
 // Object represents various data types
-type Object interface{}
+//type Object interface{}
 
 // Response represents any result or response from a Request.
 type Response interface{}
@@ -63,9 +63,9 @@ func (c RequestConstant) String() string {
 
 // RequestID implements team.RequestType.
 type RequestID struct {
-	id           RequestConstant
-	name         string
-	consistGroup string
+	id   RequestConstant
+	name string
+	//consistGroup string
 }
 
 func newRequestID(id int, name string) RequestID {
@@ -109,7 +109,7 @@ type Request struct {
 	Timestamp int64
 
 	// Interface holding data
-	Data interface{}
+	Data Entry
 }
 
 // ReqType returns the RequestType or ID.

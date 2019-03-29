@@ -1,10 +1,7 @@
 package inmemory
 
 import (
-	"fmt"
 	"time"
-
-	"github.com/jbvmio/work"
 )
 
 // RequestBuilder helps build a Request using chains.
@@ -29,23 +26,17 @@ type RequestBuilder struct {
 	Timestamp int64
 
 	// Interface holding data
-	work.Data
+	Data Entry
 }
 
 // StorageRequest represents a storage Request type.
 type StorageRequest interface {
-	Validate() (*Request, bool)
+	IsValid() bool
 }
 
-// Validate validates a storage Request type and returns true if valid.
-func Validate(sr StorageRequest) bool {
-	_, ok := sr.Validate()
-	return ok
-}
-
-// CreateRequest either converts a RequestBuilder to a Request or validates an existing storage Request and returns it back.
-func CreateRequest(sr StorageRequest) (*Request, bool) {
-	return sr.Validate()
+// IsValid validates a storage Request type and returns true if valid.
+func IsValid(sr StorageRequest) bool {
+	return sr.IsValid()
 }
 
 // BuildRequest returns a RequestBuilder which can be used to chain construct a Request.
@@ -63,47 +54,6 @@ func (sr *RequestBuilder) SetRequestType(requestType RequestConstant) *RequestBu
 	sr.RequestType = req
 	return sr
 }
-
-/*
-// SetRequestSetIndex sets the Corresponding Request Type.
-func (sr *RequestBuilder) SetRequestSetIndex() *RequestBuilder {
-	sr.RequestType = StorageSetIndex
-	return sr
-}
-
-// SetRequestSetEntry sets the Corresponding Request Type.
-func (sr *RequestBuilder) SetRequestSetEntry() *RequestBuilder {
-	sr.RequestType = StorageSetEntry
-	return sr
-}
-
-// SetRequestSetDeleteEntry sets the Corresponding Request Type.
-func (sr *RequestBuilder) SetRequestSetDeleteEntry() *RequestBuilder {
-	sr.RequestType = StorageSetDeleteEntry
-	return sr
-}
-
-// SetRequestFetchIndexes sets the Corresponding Request Type.
-func (sr *RequestBuilder) SetRequestFetchIndexes() *RequestBuilder {
-	sr.RequestType = StorageFetchIndexes
-	sr.Reply = make(chan interface{})
-	return sr
-}
-
-// SetRequestFetchEntries sets the Corresponding Request Type.
-func (sr *RequestBuilder) SetRequestFetchEntries() *RequestBuilder {
-	sr.RequestType = StorageFetchEntries
-	sr.Reply = make(chan interface{})
-	return sr
-}
-
-// SetRequestFetchEntry sets the Corresponding Request Type.
-func (sr *RequestBuilder) SetRequestFetchEntry() *RequestBuilder {
-	sr.RequestType = StorageFetchEntry
-	sr.Reply = make(chan interface{})
-	return sr
-}
-*/
 
 // SetIndex sets the index for the Storage Request.
 func (sr *RequestBuilder) SetIndex(index string) *RequestBuilder {
@@ -123,15 +73,33 @@ func (sr *RequestBuilder) SetEntry(entry string) *RequestBuilder {
 	return sr
 }
 
-// SetData attaches any desired Data for the Storage Request.
-func (sr *RequestBuilder) SetData(data work.Data) *RequestBuilder {
+// AddData attaches any desired Data for the Storage Request.
+func (sr *RequestBuilder) AddData(data interface{}) *RequestBuilder {
+	sr.Data = &Data{Item: data}
+	return sr
+}
+
+// AddEntry attaches an Entry type for the Storage Request.
+func (sr *RequestBuilder) AddEntry(data Entry) *RequestBuilder {
 	sr.Data = data
 	return sr
 }
 
-// Validate validates the RequestBuilder for all fields and returns
-// back a converted Request and true if valdation passes.
-func (sr *RequestBuilder) Validate() (*Request, bool) {
+// CreateRequest creates a new Request from a RequestBuilder.
+// If the RequestType is a Fetch type, the Reply channel is added if not already present.
+// This does not validate the Request.
+func (sr *RequestBuilder) CreateRequest() *Request {
+	switch sr.RequestType.id {
+	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry:
+		if sr.Reply == nil {
+			sr.Reply = make(chan interface{})
+		}
+	}
+	return convertFromBuilder(sr)
+}
+
+// IsValid validates the RequestBuilder for all fields and returns true if valdation passes.
+func (sr *RequestBuilder) IsValid() bool {
 validateRequest:
 	switch sr.RequestType.id {
 	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry:
@@ -159,7 +127,7 @@ validateRequest:
 					break validateRequest
 				}
 			}
-			return convertFromBuilder(sr), true
+			return true
 		}
 	case TypeSetIndex, TypeSetEntry, TypeDeleteEntry:
 		switch {
@@ -178,10 +146,27 @@ validateRequest:
 					break validateRequest
 				}
 			}
-			return convertFromBuilder(sr), true
+			return true
 		}
 	}
-	return convertFromBuilder(sr), false
+	return false
+}
+
+// CreateRequest takes a RequestBuilder, validates it and returns a Request and true if validation passes.
+// If the RequestType is a Fetch type, the Reply channel is added if not already present.
+// If validation does not pass, the returned Request will be nil.
+func CreateRequest(sr *RequestBuilder) (*Request, bool) {
+	switch sr.RequestType.id {
+	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry:
+		if sr.Reply == nil {
+			sr.Reply = make(chan interface{})
+		}
+	}
+	if ok := sr.IsValid(); ok {
+		return convertFromBuilder(sr), ok
+	}
+	close(sr.Reply)
+	return nil, false
 }
 
 func convertFromBuilder(sr *RequestBuilder) *Request {
@@ -196,24 +181,20 @@ func convertFromBuilder(sr *RequestBuilder) *Request {
 	}
 }
 
-// Validate validates the Storage Request for all fields and returns
-// it back and true if valdation passes.
-func (sr *Request) Validate() (*Request, bool) {
+// IsValid validates the Storage Request for all fields and returns true if valdation passes.
+func (sr *Request) IsValid() bool {
 validateRequest:
 	switch sr.RequestType.id {
 	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry:
 		switch {
 		case sr.Reply == nil:
-			fmt.Println("1")
 			break validateRequest
 		case sr.DB == "" || sr.Index == "":
-			fmt.Println("2")
 			if sr.RequestType.id == TypeFetchEntries || sr.RequestType.id == TypeFetchEntry {
 				break validateRequest
 			}
 			fallthrough
 		case sr.Entry == "":
-			fmt.Println("3")
 			if sr.RequestType.id == TypeFetchEntry {
 				break validateRequest
 			}
@@ -229,19 +210,15 @@ validateRequest:
 					break validateRequest
 				}
 			}
-			fmt.Println("4:", sr.RequestType.id)
-			return sr, true
+			return true
 		}
 	case TypeSetIndex, TypeSetEntry, TypeDeleteEntry:
 		switch {
 		case sr.Reply != nil:
-			fmt.Println("1")
 			break validateRequest
 		case sr.Index == "":
-			fmt.Println("2")
 			break validateRequest
 		case sr.DB == "" || sr.Entry == "":
-			fmt.Println("3")
 			if sr.RequestType.id == TypeSetEntry || sr.RequestType.id == TypeDeleteEntry {
 				break validateRequest
 			}
@@ -252,11 +229,10 @@ validateRequest:
 					break validateRequest
 				}
 			}
-			fmt.Println("4:", sr.RequestType.id)
-			return sr, true
+			return true
 		}
 	}
-	return sr, false
+	return false
 }
 
 // TimeoutSendStorageRequest sends a Request to a channel with a timeout,
