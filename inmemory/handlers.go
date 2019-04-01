@@ -7,19 +7,19 @@ import (
 
 func addIndex(r team.TaskRequest) {
 	request := r.(*Request)
-	index := GetIndex(request.Index)
+	index := moduleStorage.GetIndex(request.Index)
 	if index == nil {
 		Logger.Warn("Index Exists")
 		return
 	}
 	Logger.Debug("Adding Index", zap.String("index", request.Index))
-	NewIndex(request.Index)
+	moduleStorage.NewIndex(request.Index)
 	return
 }
 
 func deleteEntry(r team.TaskRequest) {
 	request := r.(*Request)
-	db := mainStorage.Get(request.Index).GetDB(request.DB)
+	db := moduleStorage.Get(request.Index).GetDB(request.DB)
 	if db.err != nil {
 		Logger.Error("Error Retrieving Database",
 			zap.Error(db.err),
@@ -45,7 +45,7 @@ func fetchEntryList(r team.TaskRequest) {
 	defer close(request.Reply)
 	Logger.Debug("Fetching Entries")
 
-	db := mainStorage.Get(request.Index).GetDB(request.DB)
+	db := moduleStorage.Get(request.Index).GetDB(request.DB)
 	if db.err != nil {
 		Logger.Error("Error Retrieving Database",
 			zap.Error(db.err),
@@ -79,7 +79,7 @@ func fetchEntry(r team.TaskRequest) {
 		zap.String("database", request.DB),
 		zap.String("entry", request.Entry),
 	)
-	db := mainStorage.Get(request.Index).GetDB(request.DB)
+	db := moduleStorage.Get(request.Index).GetDB(request.DB)
 	if db.err != nil {
 		Logger.Error("Error Retrieving Database",
 			zap.Error(db.err),
@@ -104,7 +104,7 @@ func fetchEntry(r team.TaskRequest) {
 
 func addEntry(r team.TaskRequest) {
 	request := r.(*Request)
-	index := GetIndex(request.Index) //indexes[request.Index]
+	index := moduleStorage.GetIndex(request.Index) //indexes[request.Index]
 	if index == nil {
 		if !AutoIndex {
 			Logger.Error("unknown index",
@@ -113,7 +113,7 @@ func addEntry(r team.TaskRequest) {
 			return
 		}
 		Logger.Debug("Auto-Adding Index", zap.String("index", request.Index))
-		index = NewIndex(request.Index)
+		index = moduleStorage.NewIndex(request.Index)
 	}
 	Logger.Debug("Adding Entry", zap.String("index", request.Index),
 		zap.String("database", request.DB),
@@ -148,12 +148,12 @@ func fetchIndexList(r team.TaskRequest) {
 	request := r.(*Request)
 	defer close(request.Reply)
 	Logger.Debug("Fetching Indexes")
-	mainStorage.idx.RLock()
-	indexList := make([]string, 0, len(mainStorage.indexes))
-	for i := range mainStorage.indexes {
+	moduleStorage.idx.RLock()
+	indexList := make([]string, 0, len(moduleStorage.indexes))
+	for i := range moduleStorage.indexes {
 		indexList = append(indexList, i)
 	}
-	mainStorage.idx.RUnlock()
+	moduleStorage.idx.RUnlock()
 	Logger.Debug("ok")
 	request.Reply <- indexList
 }

@@ -8,27 +8,31 @@ import (
 var (
 	// Enable AutoIndexing, Default true
 	AutoIndex bool
-	// mainStorage holds the main Storage
-	mainStorage = Indexes{
-		indexes: make(map[string]*Index),
-		idx:     &sync.RWMutex{},
-	}
-	// True after first initialization of the indexes
-	indexInit bool
+	// mainStorage holds an initialized Datastore
+	defaultStorage *Datastore
+	defaultInit    bool
 )
 
-// Indexes can be used to hold the main Storage
-type Indexes struct {
+// Datastore holds an InMemory storage structure.
+type Datastore struct {
 	indexes map[string]*Index
 	// Mutex for all Indexes
 	idx *sync.RWMutex
 }
 
+// New creates and returns a new Datastore.
+func New() *Datastore {
+	return &Datastore{
+		indexes: make(map[string]*Index),
+		idx:     &sync.RWMutex{},
+	}
+}
+
 // Get returns the given Index or nil.
-func (I *Indexes) Get(index string) *Index {
-	I.idx.Lock()
-	i := I.indexes[index]
-	I.idx.Unlock()
+func (D *Datastore) Get(index string) *Index {
+	D.idx.Lock()
+	i := D.indexes[index]
+	D.idx.Unlock()
 	return i
 }
 
@@ -73,20 +77,47 @@ type Database struct {
 }
 
 // NewIndex returns a new Index.
-func NewIndex(name string) *Index {
-	mainStorage.idx.Lock()
+func (D *Datastore) NewIndex(name string) *Index {
+	D.idx.Lock()
 	i := &Index{
 		db:      make(map[string]*Database),
 		idxLock: &sync.RWMutex{},
 	}
-	mainStorage.indexes[name] = i
-	mainStorage.idx.Unlock()
+	D.indexes[name] = i
+	D.idx.Unlock()
 	return i
 }
 
 // GetIndex returns the given Index or nil.
+func (D *Datastore) GetIndex(name string) *Index {
+	return D.Get(name)
+}
+
+// NewIndex operates on the defaultDatastore and returns a new Index.
+func NewIndex(name string) *Index {
+	initDefault()
+	defaultStorage.idx.Lock()
+	i := &Index{
+		db:      make(map[string]*Database),
+		idxLock: &sync.RWMutex{},
+	}
+	defaultStorage.indexes[name] = i
+	defaultStorage.idx.Unlock()
+	return i
+}
+
+func initDefault() {
+	if !defaultInit {
+		defaultStorage = New()
+	}
+}
+
+// GetIndex operates on the defaultDatastore and returns the given Index or nil.
 func GetIndex(name string) *Index {
-	return mainStorage.Get(name)
+	if !defaultInit {
+		return nil
+	}
+	return defaultStorage.Get(name)
 }
 
 // GetDB returns the specifed Database or error or not found.

@@ -10,10 +10,14 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Global Variables
+// Module Variables
 var (
 	// Main Module Logger
 	Logger *zap.Logger
+	// mainStorage holds an initialized Datastore
+	moduleStorage *Datastore
+	// True after first initialization of the indexes
+	moduleInit bool
 )
 
 // Config contains all the settings for the Module.
@@ -64,6 +68,7 @@ func NewModule(config *Config) *Module {
 	}
 	AutoIndex = config.AutoIndex
 	module.Config = config
+	moduleStorage = New()
 	return &module
 }
 

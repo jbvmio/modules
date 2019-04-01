@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jbvmio/modules/coop"
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
@@ -27,19 +26,43 @@ const (
 	moduleClass = `http`
 )
 
-// HTTPServerModule runs the HTTP interface for Burrow, managing all configured listeners.
-type HTTPServerModule struct {
+var (
+	// LogLevel for logging.
+	LogLevel *zap.AtomicLevel
+)
+
+// Config contains ConfigDetails for httpservers.
+type Config struct {
+	Servers map[string]ConfigDetail
+}
+
+// ConfigDetail contains detailed settings for each httpserver.
+type ConfigDetail struct {
+	Name              string
+	Address           string
+	ReadTimeout       time.Duration
+	ReadHeaderTimeout time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
+	CertFile          string
+	KeyFile           string
+	CAFile            string
+	NoVerify          bool
+}
+
+// Module runs the HTTP interface for Burrow, managing all configured listeners.
+type Module struct {
 	// App is a pointer to the application context. This stores the channel to the storage subsystem
-	App *coop.ApplicationContext
+	//App *coop.ApplicationContext
 
 	// Log is a logger that has been configured for this module to use. Normally, this means it has been set up with
 	// fields that are appropriate to identify this coordinator
 	Log *zap.Logger
 
-	router  *httprouter.Router
-	servers map[string]*http.Server
-	theCert map[string]string
-	theKey  map[string]string
+	Router  *httprouter.Router
+	Servers map[string]*http.Server
+	TheCert map[string]string
+	TheKey  map[string]string
 }
 
 // Configure is called to configure the HTTP server. This includes validating all configurations for each configured
@@ -48,9 +71,9 @@ type HTTPServerModule struct {
 //
 // If no listener has been configured, the coordinator will set up a default listener on a random port greater than
 // 1024, as selected by the net.Listener call. This listener will be logged so that the port chosen will be known.
-func (module *HTTPServerModule) Configure() {
+func (module *Module) Configure() {
 	module.Log.Info("configuring")
-	module.router = httprouter.New()
+	module.Router = httprouter.New()
 
 	// If no HTTP server configured, add a default HTTP server that listens on a random port
 	servers := viper.GetStringMap("httpserver")
@@ -60,13 +83,13 @@ func (module *HTTPServerModule) Configure() {
 	}
 
 	// Validate provided HTTP server configs
-	module.servers = make(map[string]*http.Server)
-	module.theCert = make(map[string]string)
-	module.theKey = make(map[string]string)
+	module.Servers = make(map[string]*http.Server)
+	module.TheCert = make(map[string]string)
+	module.TheKey = make(map[string]string)
 	for name := range servers {
 		configRoot := "httpserver." + name
 		server := &http.Server{
-			Handler: module.router,
+			Handler: module.Router,
 		}
 
 		server.Addr = viper.GetString(configRoot + ".address")
@@ -109,18 +132,18 @@ func (module *HTTPServerModule) Configure() {
 			server.TLSConfig.Certificates = []tls.Certificate{cert}
 			server.TLSConfig.BuildNameToCertificate()
 		}
-		module.servers[name] = server
-		module.theCert[name] = certFile
-		module.theKey[name] = keyFile
+		module.Servers[name] = server
+		module.TheCert[name] = certFile
+		module.TheKey[name] = keyFile
 	}
 
 	// Configure URL routes here
 
 	// This is a catchall for undefined URLs
-	module.router.NotFound = &defaultHandler{}
+	module.Router.NotFound = &defaultHandler{}
 
 	// This is a healthcheck URL. Please don't change it
-	module.router.GET("/burrow/admin", module.handleAdmin)
+	module.Router.GET("/burrow/admin", module.handleAdmin)
 
 	// All valid paths go here
 	/*
@@ -149,24 +172,24 @@ func (module *HTTPServerModule) Configure() {
 
 	// TODO: This should really have authentication protecting it
 	//module.router.DELETE("/v3/kafka/:cluster/consumer/:consumer", module.handleConsumerDelete)
-	module.router.GET("/v3/admin/loglevel", module.getLogLevel)
-	module.router.POST("/v3/admin/loglevel", module.setLogLevel)
+	module.Router.GET("/v3/admin/loglevel", module.getLogLevel)
+	module.Router.POST("/v3/admin/loglevel", module.setLogLevel)
 }
 
 // Start is responsible for starting the listener on each configured address. If any listener fails to start, the error
 // is logged, and the listeners that have already been started are stopped. The func then returns the error encountered
 // to the caller. Once the listeners are all started, the HTTP server itself is started on each listener to respond to
 // requests.
-func (module *HTTPServerModule) Start() error {
+func (module *Module) Start() error {
 	module.Log.Info("starting")
 
 	// Start listeners
 	listeners := make(map[string]net.Listener)
 
-	for name, server := range module.servers {
-		ln, err := net.Listen("tcp", module.servers[name].Addr)
+	for name, server := range module.Servers {
+		ln, err := net.Listen("tcp", module.Servers[name].Addr)
 		if err != nil {
-			module.Log.Error("failed to listen", zap.String("listener", module.servers[name].Addr), zap.Error(err))
+			module.Log.Error("failed to listen", zap.String("listener", module.Servers[name].Addr), zap.Error(err))
 			for _, listenerToClose := range listeners {
 				if listenerToClose != nil {
 					closeErr := listenerToClose.Close()
@@ -185,9 +208,9 @@ func (module *HTTPServerModule) Start() error {
 	}
 
 	// Start the HTTP server on the listeners
-	for name, server := range module.servers {
-		if module.theCert[name] != "" || module.theKey[name] != "" {
-			go server.ServeTLS(listeners[name], module.theCert[name], module.theKey[name])
+	for name, server := range module.Servers {
+		if module.TheCert[name] != "" || module.TheKey[name] != "" {
+			go server.ServeTLS(listeners[name], module.TheCert[name], module.TheKey[name])
 		} else {
 			go server.Serve(listeners[name])
 		}
@@ -199,12 +222,12 @@ func (module *HTTPServerModule) Start() error {
 // Stop calls the Close func for each configured HTTP server listener. This stops the underlying HTTP server without
 // waiting for client calls to complete. If there are any errors while shutting down the listeners, this does not stop
 // other listeners from being closed. A generic error will be returned to the caller in this case.
-func (module *HTTPServerModule) Stop() error {
+func (module *Module) Stop() error {
 	module.Log.Info("shutdown")
 
 	// Close all servers
 	collectedErrors := make([]zapcore.Field, 0)
-	for _, server := range module.servers {
+	for _, server := range module.Servers {
 		err := server.Close()
 		if err != nil {
 			collectedErrors = append(collectedErrors, zap.Error(err))
@@ -246,7 +269,7 @@ func makeRequestInfo(r *http.Request) httpResponseRequestInfo {
 	}
 }
 
-func (module *HTTPServerModule) writeResponse(w http.ResponseWriter, r *http.Request, statusCode int, jsonObj interface{}) {
+func (module *Module) writeResponse(w http.ResponseWriter, r *http.Request, statusCode int, jsonObj interface{}) {
 	// Add CORS header, if configured
 	corsHeader := viper.GetString("general.access-control-allow-origin")
 	if corsHeader != "" {
@@ -264,7 +287,7 @@ func (module *HTTPServerModule) writeResponse(w http.ResponseWriter, r *http.Req
 	}
 }
 
-func (module *HTTPServerModule) writeErrorResponse(w http.ResponseWriter, r *http.Request, errValue int, message string) {
+func (module *Module) writeErrorResponse(w http.ResponseWriter, r *http.Request, errValue int, message string) {
 	module.writeResponse(w, r, errValue, httpResponseError{
 		Error:   true,
 		Message: message,
@@ -279,7 +302,7 @@ func (handler *defaultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	http.Error(w, "{\"error\":true,\"message\":\"invalid request type\",\"result\":{}}", http.StatusNotFound)
 }
 
-func (module *HTTPServerModule) handleAdmin(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (module *Module) handleAdmin(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// Add CORS header, if configured
 	corsHeader := viper.GetString("general.access-control-allow-origin")
 	if corsHeader != "" {
@@ -290,17 +313,18 @@ func (module *HTTPServerModule) handleAdmin(w http.ResponseWriter, r *http.Reque
 	w.Write([]byte("GOOD"))
 }
 
-func (module *HTTPServerModule) getLogLevel(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (module *Module) getLogLevel(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	requestInfo := makeRequestInfo(r)
 	module.writeResponse(w, r, http.StatusOK, httpResponseLogLevel{
 		Error:   false,
 		Message: "log level returned",
-		Level:   module.App.LogLevel.Level().String(),
+		//Level:   module.App.LogLevel.Level().String(),
+		Level:   LogLevel.Level().String(),
 		Request: requestInfo,
 	})
 }
 
-func (module *HTTPServerModule) setLogLevel(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (module *Module) setLogLevel(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// Decode the JSON body
 	decoder := json.NewDecoder(r.Body)
 	var req logLevelRequest
@@ -314,15 +338,16 @@ func (module *HTTPServerModule) setLogLevel(w http.ResponseWriter, r *http.Reque
 	// Explicitly validate the log level provided
 	switch strings.ToLower(req.Level) {
 	case "debug", "trace":
-		module.App.LogLevel.SetLevel(zap.DebugLevel)
+		//module.App.LogLevel.SetLevel(zap.DebugLevel)
+		LogLevel.SetLevel(zap.DebugLevel)
 	case "info":
-		module.App.LogLevel.SetLevel(zap.InfoLevel)
+		LogLevel.SetLevel(zap.InfoLevel)
 	case "warning", "warn":
-		module.App.LogLevel.SetLevel(zap.WarnLevel)
+		LogLevel.SetLevel(zap.WarnLevel)
 	case "error":
-		module.App.LogLevel.SetLevel(zap.ErrorLevel)
+		LogLevel.SetLevel(zap.ErrorLevel)
 	case "fatal":
-		module.App.LogLevel.SetLevel(zap.FatalLevel)
+		LogLevel.SetLevel(zap.FatalLevel)
 	default:
 		module.writeErrorResponse(w, r, http.StatusNotFound, "unknown log level")
 		return
