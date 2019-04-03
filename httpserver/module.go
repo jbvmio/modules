@@ -21,33 +21,14 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	moduleName  = `httpserver`
-	moduleClass = `http`
-)
-
 var (
 	// LogLevel for logging.
 	LogLevel *zap.AtomicLevel
 )
 
-// Config contains ConfigDetails for httpservers.
-type Config struct {
-	Servers map[string]ConfigDetail
-}
-
-// ConfigDetail contains detailed settings for each httpserver.
-type ConfigDetail struct {
-	Name              string
-	Address           string
-	ReadTimeout       time.Duration
-	ReadHeaderTimeout time.Duration
-	WriteTimeout      time.Duration
-	IdleTimeout       time.Duration
-	CertFile          string
-	KeyFile           string
-	CAFile            string
-	NoVerify          bool
+// Configs contain one or more httpserver Config.
+type Configs struct {
+	Servers map[string]*Config
 }
 
 // Module runs the HTTP interface for Burrow, managing all configured listeners.
@@ -239,26 +220,6 @@ func (module *Module) Stop() error {
 		return errors.New("error shutting down HTTP servers")
 	}
 	return nil
-}
-
-// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted connections. It's used by ListenAndServe and
-// ListenAndServeTLS so dead TCP connections (e.g. closing laptop mid-download) eventually go away.
-type tcpKeepAliveListener struct {
-	*net.TCPListener
-	Keepalive time.Duration
-}
-
-func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
-	tc, err := ln.AcceptTCP()
-	if err != nil {
-		return
-	}
-
-	if ln.Keepalive > 0 {
-		tc.SetKeepAlive(true)
-		tc.SetKeepAlivePeriod(ln.Keepalive)
-	}
-	return tc, nil
 }
 
 func makeRequestInfo(r *http.Request) httpResponseRequestInfo {
