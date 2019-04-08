@@ -108,6 +108,12 @@ func (s *HTTPServer) POST(path string, handle httprouter.Handle) {
 	s.Router.POST(path, handle)
 }
 
+// PUT adds a Handler for the specified path.
+// Shortcut for router.Handle("PUT", path, handle)
+func (s *HTTPServer) PUT(path string, handle httprouter.Handle) {
+	s.Router.PUT(path, handle)
+}
+
 // Serve starts the HTTP server and listens.
 func (s *HTTPServer) Serve() error {
 	ln, err := net.Listen("tcp", s.Server.Addr)

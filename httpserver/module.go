@@ -137,6 +137,30 @@ func (m *Module) HostGET(host, path string, handle httprouter.Handle) {
 	m.Servers[host].Router.GET(path, handle)
 }
 
+// POST adds a Get Request to all HTTPServers.
+func (m *Module) POST(path string, handle httprouter.Handle) {
+	for name := range m.Servers {
+		m.Servers[name].Router.POST(path, handle)
+	}
+}
+
+// HostPOST adds a Get Request to the specified named HTTPServer.
+func (m *Module) HostPOST(host, path string, handle httprouter.Handle) {
+	m.Servers[host].Router.POST(path, handle)
+}
+
+// PUT adds a Get Request to all HTTPServers.
+func (m *Module) PUT(path string, handle httprouter.Handle) {
+	for name := range m.Servers {
+		m.Servers[name].Router.PUT(path, handle)
+	}
+}
+
+// HostPUT adds a Get Request to the specified named HTTPServer.
+func (m *Module) HostPUT(host, path string, handle httprouter.Handle) {
+	m.Servers[host].Router.PUT(path, handle)
+}
+
 // Configure is called to configure the HTTP server. This includes validating all configurations for each configured
 // listener (which are not treated as separate modules, as opposed to other coordinators), as well as setting up the
 // request router. Any configuration failure will cause the func to panic with an appropriate error message.
