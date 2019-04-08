@@ -147,6 +147,6 @@ func configureLogger(logLevel string) *zap.Logger {
 		level,
 	)
 	logger := zap.New(core)
-	zap.ReplaceGlobals(logger)
+	//zap.ReplaceGlobals(logger)
 	return logger
 }

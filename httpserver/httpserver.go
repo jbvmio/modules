@@ -3,6 +3,7 @@ package httpserver
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -14,13 +15,14 @@ import (
 
 // Config contains detailed settings for a httpserver.
 type Config struct {
-	Name     string
-	Address  string
-	CertFile string
-	KeyFile  string
-	CAFile   string
-	NoVerify bool
-	Timeout  int
+	Name      string
+	Address   string
+	CertFile  string
+	KeyFile   string
+	CAFile    string
+	NoVerify  bool
+	Timeout   int
+	CORSAllow string
 
 	// Future implement individual timeouts:
 	//ReadTimeout       time.Duration
@@ -72,23 +74,15 @@ func configureHTTPServer(config *Config) *HTTPServer {
 	}
 	if config.CAFile != "" {
 		caCert, err := ioutil.ReadFile(config.CAFile)
-	TLSConfig:
 		switch {
 		case err != nil:
-			fmt.Println("ERROR:", "cannot read TLS CA file:", err)
-			fmt.Println("Skipping TLSConfig")
-			break TLSConfig
+			panic("cannot read TLS CA file: " + err.Error())
 		case config.KeyFile == "", config.CertFile == "":
-			fmt.Println("ERROR: TLS HTTP server specified with missing certificate or key")
-			fmt.Println("Skipping TLSConfig")
-			break TLSConfig
+			panic("ERROR: TLS HTTP server specified with missing certificate or key")
 		default:
 			cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
 			if err != nil {
-				//panic("cannot read TLS certificate or key file: " + err.Error())
-				fmt.Println("cannot read TLS certificate or key file: " + err.Error())
-				fmt.Println("Skipping TLSConfig")
-				break TLSConfig
+				panic("cannot read TLS certificate or key file: " + err.Error())
 			}
 			server.Server.TLSConfig = &tls.Config{
 				InsecureSkipVerify: config.NoVerify,
@@ -137,6 +131,23 @@ func (s *HTTPServer) Serve() error {
 	return s.Server.Serve(listener)
 }
 
+// WriteJSONResponse generates a JSON response from the given JSON object and writes to the given ResponseWriter.
+func (s *HTTPServer) WriteJSONResponse(w http.ResponseWriter, statusCode int, jsonObj interface{}) {
+	// Add CORS header, if configured
+	if s.Config.CORSAllow != "" {
+		w.Header().Set("Access-Control-Allow-Origin", s.Config.CORSAllow)
+	}
+	w.Header().Set("Content-Type", "application/json")
+
+	if jsonBytes, err := json.Marshal(jsonObj); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("{\"error\":true,\"message\":\"could not encode JSON\",\"result\":{}}"))
+	} else {
+		w.WriteHeader(statusCode)
+		w.Write(jsonBytes)
+	}
+}
+
 // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted connections. It's used by ListenAndServe and
 // ListenAndServeTLS so dead TCP connections (e.g. closing laptop mid-download) eventually go away.
 type tcpKeepAliveListener struct {
@@ -149,7 +160,6 @@ func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	if err != nil {
 		return
 	}
-
 	if ln.Keepalive > 0 {
 		tc.SetKeepAlive(true)
 		tc.SetKeepAlivePeriod(ln.Keepalive)
