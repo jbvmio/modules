@@ -122,6 +122,11 @@ func GetIndex(name string) *Index {
 
 // GetDB returns the specifed Database or error or not found.
 func (i *Index) GetDB(db string) *Database {
+	if i == nil {
+		return &Database{
+			err: Errf(ErrUnknownIndex, "non-existent index"),
+		}
+	}
 	database, ok := i.db[db]
 	if !ok {
 		return &Database{

@@ -90,7 +90,7 @@ func (sr *RequestBuilder) AddEntry(data Entry) *RequestBuilder {
 // This does not validate the Request.
 func (sr *RequestBuilder) CreateRequest() *Request {
 	switch sr.RequestType.id {
-	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry:
+	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry, TypeFetchDatabases, TypeFetchAllEntries:
 		if sr.Reply == nil {
 			sr.Reply = make(chan interface{})
 		}
@@ -102,12 +102,17 @@ func (sr *RequestBuilder) CreateRequest() *Request {
 func (sr *RequestBuilder) IsValid() bool {
 validateRequest:
 	switch sr.RequestType.id {
-	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry:
+	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry, TypeFetchDatabases, TypeFetchAllEntries:
 		switch {
 		case sr.Reply == nil:
 			break validateRequest
-		case sr.DB == "" || sr.Index == "":
-			if sr.RequestType.id == TypeFetchEntries || sr.RequestType.id == TypeFetchEntry {
+		case sr.Index == "":
+			if sr.RequestType.id == TypeFetchEntries || sr.RequestType.id == TypeFetchEntry || sr.RequestType.id == TypeFetchAllEntries || sr.RequestType.id == TypeFetchDatabases {
+				break validateRequest
+			}
+			fallthrough
+		case sr.DB == "":
+			if sr.RequestType.id == TypeFetchEntries || sr.RequestType.id == TypeFetchEntry || sr.RequestType.id == TypeFetchAllEntries {
 				break validateRequest
 			}
 			fallthrough
@@ -157,7 +162,7 @@ validateRequest:
 // If validation does not pass, the returned Request will be nil.
 func CreateRequest(sr *RequestBuilder) (*Request, bool) {
 	switch sr.RequestType.id {
-	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry:
+	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry, TypeFetchDatabases, TypeFetchAllEntries:
 		if sr.Reply == nil {
 			sr.Reply = make(chan interface{})
 		}
@@ -185,12 +190,17 @@ func convertFromBuilder(sr *RequestBuilder) *Request {
 func (sr *Request) IsValid() bool {
 validateRequest:
 	switch sr.RequestType.id {
-	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry:
+	case TypeFetchIndexes, TypeFetchEntries, TypeFetchEntry, TypeFetchDatabases, TypeFetchAllEntries:
 		switch {
 		case sr.Reply == nil:
 			break validateRequest
-		case sr.DB == "" || sr.Index == "":
-			if sr.RequestType.id == TypeFetchEntries || sr.RequestType.id == TypeFetchEntry {
+		case sr.Index == "":
+			if sr.RequestType.id == TypeFetchEntries || sr.RequestType.id == TypeFetchEntry || sr.RequestType.id == TypeFetchAllEntries || sr.RequestType.id == TypeFetchDatabases {
+				break validateRequest
+			}
+			fallthrough
+		case sr.DB == "":
+			if sr.RequestType.id == TypeFetchEntries || sr.RequestType.id == TypeFetchEntry || sr.RequestType.id == TypeFetchAllEntries {
 				break validateRequest
 			}
 			fallthrough

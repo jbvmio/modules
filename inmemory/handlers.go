@@ -102,6 +102,31 @@ func fetchEntry(r team.TaskRequest) {
 	request.Reply <- entry
 }
 
+func fetchAllEntries(r team.TaskRequest) {
+	request := r.(*Request)
+	defer close(request.Reply)
+	Logger.Debug("Fetching Entries")
+
+	db := moduleStorage.Get(request.Index).GetDB(request.DB)
+	if db.err != nil {
+		Logger.Error("Error Retrieving Database",
+			zap.Error(db.err),
+		)
+		return
+	}
+
+	db.RLock()
+	entries := *db.EntryMap()
+	allEntries := make([]Entry, 0, len(entries))
+	for entry := range entries {
+		allEntries = append(allEntries, entries[entry])
+	}
+	db.RUnlock()
+
+	Logger.Debug("ok")
+	request.Reply <- allEntries
+}
+
 func addEntry(r team.TaskRequest) {
 	request := r.(*Request)
 	index := moduleStorage.GetIndex(request.Index) //indexes[request.Index]
@@ -156,4 +181,25 @@ func fetchIndexList(r team.TaskRequest) {
 	moduleStorage.idx.RUnlock()
 	Logger.Debug("ok")
 	request.Reply <- indexList
+}
+
+func fetchDBList(r team.TaskRequest) {
+	request := r.(*Request)
+	defer close(request.Reply)
+	index := moduleStorage.GetIndex(request.Index) //indexes[request.Index]
+	if index == nil {
+		Logger.Error("unknown index",
+			zap.String("index", request.Index),
+		)
+		return
+	}
+	Logger.Debug("Fetching Databases")
+	dbList := make([]string, 0, len(index.db))
+	index.Lock()
+	for i := range index.db {
+		dbList = append(dbList, i)
+	}
+	index.Unlock()
+	Logger.Debug("ok")
+	request.Reply <- dbList
 }

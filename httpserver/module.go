@@ -25,8 +25,7 @@ var (
 
 // Configs contain one or more httpserver Config.
 type Configs struct {
-	HostSwitch string
-	Server     map[string]*Config
+	Server map[string]*Config
 }
 
 // Module runs the HTTP interface for Burrow, managing all configured listeners.

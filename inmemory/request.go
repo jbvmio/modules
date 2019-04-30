@@ -19,29 +19,29 @@ type RequestHandleFunc func(Request)
 type RequestMapping map[RequestConstant]RequestHandleFunc
 
 const (
-	// TypeSetIndex is the request type to store a consumer owner. Requires Cluster, Group, Topic, Partition,
-	// and Owner fields
+	// TypeSetIndex is the request type to Set context to a specific Index.
 	TypeSetIndex RequestConstant = 0
 
-	// TypeSetEntry is the request type to store a consumer owner. Requires Cluster, Group, Topic, Partition,
-	// and Owner fields
+	// TypeSetEntry is the request type to Set context to a specific Entry.
 	TypeSetEntry RequestConstant = 1
 
-	// TypeDeleteEntry is the request type to remove a topic from the broker and all consumers. Requires Cluster,
-	// Group, and Topic fields
+	// TypeDeleteEntry is the request type to remove a specific Entry.
 	TypeDeleteEntry RequestConstant = 2
 
-	// TypeFetchIndexes is the request type to retrieve a list of clusters. Requires Reply. Returns a []string
+	// TypeFetchIndexes is the request type to retrieve a list of Indexes. Requires Reply. Returns a []string
 	TypeFetchIndexes RequestConstant = 3
 
-	// TypeFetchEntries is the request type to retrieve a list of topics in a cluster. Requires Reply and Cluster
-	// fields. Returns a []string
+	// TypeFetchEntries is the request type to retrieve a list of Entries. Requires Reply. Returns a []string
 	TypeFetchEntries RequestConstant = 4
 
-	// TypeFetchEntry is the request type to retrieve the current broker offsets (one per partition) for a topic.
-	// Requires Reply, Cluster, and Topic fields.
-	// Returns a []int64
+	// TypeFetchEntry is the request type to retrieve a specific Entry.
 	TypeFetchEntry RequestConstant = 5
+
+	// TypeFetchDatabases is the request type to retrieve a list of Databases. Returns a []string
+	TypeFetchDatabases RequestConstant = 6
+
+	// TypeFetchAllEntries is the request type to retrieve all entries in a database. Returns a []interface{}
+	TypeFetchAllEntries RequestConstant = 7
 )
 
 var storageRequestStrings = [...]string{
@@ -51,6 +51,8 @@ var storageRequestStrings = [...]string{
 	"TypeFetchIndexes",
 	"TypeFetchEntries",
 	"TypeFetchEntry",
+	"TypeFetchDatabases",
+	"TypeFetchAllEntries",
 }
 
 // String returns a string representation of a StorageRequestConstant for logging
@@ -134,16 +136,18 @@ func (r *Request) ConsistID() string {
 
 var requestMap = team.RequestMap{
 	All: map[int]team.RequestHandleFunc{
-		int(TypeSetIndex):     addIndex,
-		int(TypeSetEntry):     addEntry,
-		int(TypeDeleteEntry):  deleteEntry,
-		int(TypeFetchIndexes): fetchIndexList,
-		int(TypeFetchEntries): fetchEntryList,
-		int(TypeFetchEntry):   fetchEntry,
+		int(TypeSetIndex):       addIndex,
+		int(TypeSetEntry):       addEntry,
+		int(TypeDeleteEntry):    deleteEntry,
+		int(TypeFetchIndexes):   fetchIndexList,
+		int(TypeFetchDatabases): fetchDBList,
+		int(TypeFetchEntries):   fetchEntryList,
+		int(TypeFetchEntry):     fetchEntry,
 	},
 	Consistent: map[int]team.RequestHandleFunc{
-		int(TypeSetEntry):    addEntry,
-		int(TypeDeleteEntry): deleteEntry,
-		int(TypeFetchEntry):  fetchEntry,
+		int(TypeSetEntry):        addEntry,
+		int(TypeDeleteEntry):     deleteEntry,
+		int(TypeFetchEntry):      fetchEntry,
+		int(TypeFetchAllEntries): fetchAllEntries,
 	},
 }
